@@ -1,6 +1,6 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const express = require('express');
+const qrcode = require('qrcode');
 
 const app = express();
 let qrCodeData = '';
@@ -18,7 +18,6 @@ const client = new Client({
 
 client.on('qr', (qr) => {
   qrCodeData = qr;
-  qrcode.generate(qr, { small: true });
   console.log('QR generado');
 });
 
@@ -32,18 +31,19 @@ client.on('message', async (msg) => {
   const found = KEYWORDS.find(k => texto.includes(k.toLowerCase()));
   if (found) {
     await msg.reply(AUTO_REPLY);
-    console.log('Respondido: ' + msg.body);
   }
 });
 
-app.get('/', (req, res) => {
-  res.send(isReady ? 'Bot conectado' : `QR: ${qrCodeData}`);
+app.get('/', async (req, res) => {
+  if (isReady) {
+    res.send('<h1>Bot conectado y activo</h1>');
+  } else if (qrCodeData) {
+    const qrImg = await qrcode.toDataURL(qrCodeData);
+    res.send(`<html><body style="text-align:center"><h2>Escanea con WhatsApp Business</h2><img src="${qrImg}" style="width:300px"/><p>Recarga si expira</p></body></html>`);
+  } else {
+    res.send('<h1>Iniciando bot, espera 10 segundos y recarga...</h1>');
+  }
 });
 
-app.get('/qr', (req, res) => {
-  res.json({ qr: qrCodeData, ready: isReady });
-});
-
-app.listen(3000, () => console.log('Servidor en puerto 3000'));
-
+app.listen(3000, () => console.log('Servidor activo'));
 client.initialize();
