@@ -1,18 +1,31 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const qrcode = require('qrcode');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json());
 
+const CONFIG_FILE = '/tmp/config.json';
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE));
+  } catch(e) {}
+  return { botActivo: true, gruposActivos: [] };
+}
+
+function saveConfig() {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ botActivo, gruposActivos: GRUPOS_ACTIVOS }));
+}
+
+let cfg = loadConfig();
+let botActivo = cfg.botActivo;
+let GRUPOS_ACTIVOS = cfg.gruposActivos;
 let qrCodeData = '';
 let isReady = false;
-let botActivo = true;
 const lastReply = {};
 const COOLDOWN = 10 * 60 * 1000;
-
-let KEYWORDS = ['box', 'como estás', 'precio', 'disponible'];
-let GRUPOS_ACTIVOS = [];
 const AUTO_REPLY = 'Voy';
 
 const client = new Client({
@@ -23,8 +36,11 @@ const client = new Client({
 client.on('qr', (qr) => { qrCodeData = qr; });
 client.on('ready', async () => {
   isReady = true;
-  const chats = await client.getChats();
-  GRUPOS_ACTIVOS = chats.filter(c => c.isGroup).map(c => c.id._serialized);
+  if (GRUPOS_ACTIVOS.length === 0) {
+    const chats = await client.getChats();
+    GRUPOS_ACTIVOS = chats.filter(c => c.isGroup).map(c => c.id._serialized);
+    saveConfig();
+  }
   console.log('Listo');
 });
 
@@ -34,6 +50,7 @@ client.on('message', async (msg) => {
   if (!chat.isGroup) return;
   if (!GRUPOS_ACTIVOS.includes(chat.id._serialized)) return;
   const texto = msg.body.toLowerCase();
+  const KEYWORDS = ['box', 'como estás', 'precio', 'disponible'];
   const found = KEYWORDS.find(k => texto.includes(k.toLowerCase()));
   if (!found) return;
   const ahora = Date.now();
@@ -59,14 +76,14 @@ app.get('/', async (req, res) => {
       </button>
     </div>`).join('');
   res.send(`<html><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
-    <h2>WhatsApp Bot</h2>
+    <h2>🤖 WhatsApp Bot</h2>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:#f5f5f5;border-radius:10px;margin-bottom:20px">
-      <span style="font-weight:bold">Bot ${botActivo?'Activo':'Inactivo'}</span>
-      <button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:${botActivo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:15px">
+      <span style="font-weight:bold;font-size:16px">Bot ${botActivo?'✅ Activo':'⛔ Inactivo'}</span>
+      <button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:${botActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:15px">
         ${botActivo?'Desactivar':'Activar'}
       </button>
     </div>
-    <p style="color:#888;font-size:13px">Cooldown: 10 min por grupo | Respuesta: "${AUTO_REPLY}"</p>
+    <p style="color:#888;font-size:13px">⏱ Cooldown: 10 min por grupo | Respuesta automática: <b>"${AUTO_REPLY}"</b></p>
     <h3>Grupos</h3>${gruposHtml}
     <script>
       async function toggleBot(){await fetch('/toggle',{method:'POST'});location.reload();}
@@ -75,11 +92,17 @@ app.get('/', async (req, res) => {
   </body></html>`);
 });
 
-app.post('/toggle', (req, res) => { botActivo = !botActivo; res.json({activo: botActivo}); });
+app.post('/toggle', (req, res) => {
+  botActivo = !botActivo;
+  saveConfig();
+  res.json({activo: botActivo});
+});
+
 app.post('/grupo', (req, res) => {
   const {id} = req.body;
   if (GRUPOS_ACTIVOS.includes(id)) GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(g => g !== id);
   else GRUPOS_ACTIVOS.push(id);
+  saveConfig();
   res.json({grupos: GRUPOS_ACTIVOS});
 });
 
