@@ -54,7 +54,8 @@ const KEYWORDS_GLOBALES = [
 const SECTORES = {
   'Sector PTB': [
     'CARTAS RESTAURANTES','LA BUMANGUESA BOX DELIVERY','MONKEY DONUTS BOX DELIVERY',
-    'PEÑONETTI BOX DELIVERY','SHAWABURGUER BOX DELIVERY','BRUCES BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY'
+    'PEÑONETTI BOX DELIVERY','SHAWABURGUER BOX DELIVERY','BRUCES BOX DELIVERY',
+    'PUNTO CALIENTE - BOX DELIVERY'
   ],
   'Sector San José': [
     'Hola','THE CROWN BOX DELIVERY','HARVEST BOX DELIVERY','RICOS PROTEIN - BOX DELIVERY',
@@ -117,11 +118,10 @@ const lastReply = {};
 const COOLDOWN = 5 * 60 * 1000;
 const AUTO_REPLY = 'Voy';
 
-// ✅ Clientes SSE conectados (para notificaciones en tiempo real)
 let sseClients = [];
 
-function enviarNotificacion(grupo, mensaje) {
-  const data = JSON.stringify({ grupo, mensaje, hora: new Date().toLocaleTimeString('es-PE') });
+function enviarNotificacion(grupo, hora) {
+  const data = JSON.stringify({ grupo, hora });
   sseClients = sseClients.filter(res => {
     try { res.write(`data: ${data}\n\n`); return true; } catch(e) { return false; }
   });
@@ -185,8 +185,8 @@ client.on('message', async (msg) => {
   lastReply[key] = ahora;
   await msg.reply(AUTO_REPLY);
 
-  // ✅ Disparar notificación
-  enviarNotificacion(chat.name, `"${texto.substring(0, 60)}${texto.length > 60 ? '...' : ''}"`);
+  const hora = new Date().toLocaleTimeString('es-PE');
+  enviarNotificacion(chat.name, hora);
 
   botActivo = false;
   saveConfig();
@@ -200,7 +200,15 @@ function getSectorDeGrupo(nombreGrupo) {
   return 'Sector X (otros)';
 }
 
-// ✅ Endpoint SSE para notificaciones en tiempo real
+app.get('/manifest.json', (req, res) => {
+  res.sendFile(__dirname + '/manifest.json');
+});
+
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.sendFile(__dirname + '/sw.js');
+});
+
 app.get('/eventos', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -269,6 +277,7 @@ app.get('/', (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>WhatsApp Bot</title>
+    <link rel="manifest" href="/manifest.json">
   </head>
   <body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
     <h2>🤖 WhatsApp Bot</h2>
@@ -284,32 +293,36 @@ app.get('/', (req, res) => {
     ${sectoresHtml}
 
     <script>
-      // ✅ Pedir permiso de notificaciones al cargar
       async function pedirPermiso() {
-        if (!('Notification' in window)) return;
-        if (Notification.permission === 'default') {
-          await Notification.requestPermission();
+        if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
+        try {
+          await navigator.serviceWorker.register('/sw.js');
+          if (Notification.permission === 'default') {
+            await Notification.requestPermission();
+          }
+        } catch(e) {
+          console.error('Error SW:', e);
         }
       }
       pedirPermiso();
 
-      // ✅ Escuchar eventos del servidor
       const evtSource = new EventSource('/eventos');
       evtSource.onmessage = (e) => {
         const data = JSON.parse(e.data);
-        mostrarNotificacion(data.grupo, data.mensaje, data.hora);
+        mostrarNotificacion(data.grupo, data.hora);
       };
 
-      function mostrarNotificacion(grupo, mensaje, hora) {
-        // Notificación del sistema (push)
-        if (Notification.permission === 'granted') {
-          new Notification('✅ Bot respondió', {
-            body: grupo + ' — ' + hora,
-            icon: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
-            tag: 'bot-reply'
+      function mostrarNotificacion(grupo, hora) {
+        if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification('✅ Bot respondió', {
+              body: grupo + ' · ' + hora,
+              icon: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
+              vibrate: [200, 100, 200],
+              tag: 'bot-reply'
+            });
           });
         }
-        // Toast visual en el panel también
         const toast = document.createElement('div');
         toast.style.cssText = 'position:fixed;top:16px;right:16px;background:#25D366;color:white;padding:12px 18px;border-radius:12px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:9999;max-width:280px';
         toast.innerHTML = '<b>✅ Bot respondió</b><br>' + grupo + '<br><span style="font-size:12px;opacity:0.85">' + hora + '</span>';
