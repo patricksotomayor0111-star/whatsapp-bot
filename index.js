@@ -38,7 +38,6 @@ const GRUPOS_FOTO = [
   'CARTAS RESTAURANTES'
 ];
 
-// ✅ KEYWORDS ESPECIALES POR GRUPO
 const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo']
 };
@@ -49,62 +48,36 @@ const KEYWORDS_GLOBALES = [
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
   'tenemos pedido','box','un box','un motorizado','venir','pedidi',
-  'movilidad','movil','viniendo'  // ✅ "viniendo" agregado
+  'movilidad','movil','viniendo'
 ];
 
-// ✅ SECTORES con sus grupos
 const SECTORES = {
   'Sector PTB': [
-    'CARTAS RESTAURANTES',
-    'LA BUMANGUESA BOX DELIVERY',
-    'MONKEY DONUTS BOX DELIVERY',
-    'PEÑONETTI BOX DELIVERY',
-    'SHAWABURGUER BOX DELIVERY',
-    'BRUCES BOX DELIVERY',
-    'PUNTO CALIENTE - BOX DELIVERY'
+    'CARTAS RESTAURANTES','LA BUMANGUESA BOX DELIVERY','MONKEY DONUTS BOX DELIVERY',
+    'PEÑONETTI BOX DELIVERY','SHAWABURGUER BOX DELIVERY','BRUCES BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY'
   ],
   'Sector San José': [
-    'Hola',
-    'THE CROWN BOX DELIVERY',
-    'HARVEST BOX DELIVERY',
-    'RICOS PROTEIN - BOX DELIVERY',
-    'AYABACA - BUMANGUESA II',
-    'MISKY POLLERIA (dribox)',
-    'KAM LONG PEDIDOS',
-    'BOCHITOS BOX DELIVERY',
-    'LAS NIEVES BOX DELIVERY'
+    'Hola','THE CROWN BOX DELIVERY','HARVEST BOX DELIVERY','RICOS PROTEIN - BOX DELIVERY',
+    'AYABACA - BUMANGUESA II','MISKY POLLERIA (dribox)','KAM LONG PEDIDOS',
+    'BOCHITOS BOX DELIVERY','LAS NIEVES BOX DELIVERY'
   ],
   'Sector Moderna': [
-    'BUBATON BOX DELIVERY',
-    'CRAZY CORN 🌭🧋🤗',
-    'CHIFA LIU BOX DELIVERY',
-    'McGrill Restaurante BOX DELIVERY',
-    'REST CENTRO BOX DELIVERY',
-    'DELIVERY BOX / LAGUNILLA',
-    'MISTER JUGO BOX DELIVERY',
-    'ARTIA PASTELERIA (dribox)',
-    'CANTONES - BOX DELIVERY',
-    'Hugo Restaurante BOX DELIVERY',
-    'KANASTAS BOX DELIVERY',
-    'PIM PAM POLLO BOX DELIVERY'
+    'BUBATON BOX DELIVERY','CRAZY CORN 🌭🧋🤗','CHIFA LIU BOX DELIVERY',
+    'McGrill Restaurante BOX DELIVERY','REST CENTRO BOX DELIVERY','DELIVERY BOX / LAGUNILLA',
+    'MISTER JUGO BOX DELIVERY','ARTIA PASTELERIA (dribox)','CANTONES - BOX DELIVERY',
+    'Hugo Restaurante BOX DELIVERY','KANASTAS BOX DELIVERY','PIM PAM POLLO BOX DELIVERY'
   ],
   'Sector La Angostura': [
-    'Boletas locales',
-    'Don Alejandro -BOX DELYBERY',
-    'EL BORGO BOX DELIVERY'
+    'Boletas locales','Don Alejandro -BOX DELYBERY','EL BORGO BOX DELIVERY'
   ],
-  'Sector X (otros)': []  // se llenará automáticamente con grupos no clasificados
+  'Sector X (otros)': []
 };
 
 const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
 function similarEnough(texto, keyword) {
-  texto = texto.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9 ]/g,'');
-  keyword = keyword.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9 ]/g,'');
+  texto = texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'');
+  keyword = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'');
   if (texto.includes(keyword)) return true;
   const words = keyword.split(' ');
   return words.every(w => {
@@ -128,10 +101,8 @@ function loadConfig() {
 
 function saveConfig() {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-    botActivo,
-    gruposActivos: GRUPOS_ACTIVOS,
-    gruposCache: GRUPOS_CACHE,
-    sectoresApagados: SECTORES_APAGADOS
+    botActivo, gruposActivos: GRUPOS_ACTIVOS,
+    gruposCache: GRUPOS_CACHE, sectoresApagados: SECTORES_APAGADOS
   }));
 }
 
@@ -146,6 +117,16 @@ const lastReply = {};
 const COOLDOWN = 5 * 60 * 1000;
 const AUTO_REPLY = 'Voy';
 
+// ✅ Clientes SSE conectados (para notificaciones en tiempo real)
+let sseClients = [];
+
+function enviarNotificacion(grupo, mensaje) {
+  const data = JSON.stringify({ grupo, mensaje, hora: new Date().toLocaleTimeString('es-PE') });
+  sseClients = sseClients.filter(res => {
+    try { res.write(`data: ${data}\n\n`); return true; } catch(e) { return false; }
+  });
+}
+
 const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
@@ -158,8 +139,6 @@ client.on('ready', async () => {
   const chats = await client.getChats();
   const grupos = chats.filter(c => c.isGroup);
   GRUPOS_CACHE = grupos.map(g => ({ id: g.id._serialized, name: g.name }));
-
-  // Ordenar: primero los del ORDEN, luego el resto (van a Sector X)
   GRUPOS_CACHE.sort((a, b) => {
     const ia = ORDEN_GRUPOS.indexOf(a.name);
     const ib = ORDEN_GRUPOS.indexOf(b.name);
@@ -168,11 +147,9 @@ client.on('ready', async () => {
     if (ib === -1) return -1;
     return ia - ib;
   });
-
   GRUPOS_CACHE.forEach(g => {
     if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
   });
-
   saveConfig();
   console.log('Listo');
 });
@@ -187,16 +164,10 @@ client.on('message', async (msg) => {
   if (NUMEROS_IGNORADOS.includes(numero)) return;
 
   const esFoto = msg.hasMedia && msg.type === 'image';
-  const esFotoGrupo = GRUPOS_FOTO.some(nombre =>
-    chat.name.toLowerCase().includes(nombre.toLowerCase())
-  );
-
+  const esFotoGrupo = GRUPOS_FOTO.some(n => chat.name.toLowerCase().includes(n.toLowerCase()));
   const texto = msg.body || '';
 
-  // Verificar keywords globales
   let tieneKeyword = KEYWORDS_GLOBALES.find(k => similarEnough(texto, k));
-
-  // Verificar keywords especiales por grupo
   if (!tieneKeyword) {
     for (const [nombreGrupo, keywords] of Object.entries(KEYWORDS_ESPECIALES)) {
       if (chat.name.toLowerCase().includes(nombreGrupo.toLowerCase())) {
@@ -213,11 +184,14 @@ client.on('message', async (msg) => {
   if (lastReply[key] && ahora - lastReply[key] < COOLDOWN) return;
   lastReply[key] = ahora;
   await msg.reply(AUTO_REPLY);
+
+  // ✅ Disparar notificación
+  enviarNotificacion(chat.name, `"${texto.substring(0, 60)}${texto.length > 60 ? '...' : ''}"`);
+
   botActivo = false;
   saveConfig();
 });
 
-// ✅ Función para obtener sector de un grupo
 function getSectorDeGrupo(nombreGrupo) {
   for (const [sector, grupos] of Object.entries(SECTORES)) {
     if (sector === 'Sector X (otros)') continue;
@@ -226,19 +200,33 @@ function getSectorDeGrupo(nombreGrupo) {
   return 'Sector X (otros)';
 }
 
+// ✅ Endpoint SSE para notificaciones en tiempo real
+app.get('/eventos', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  sseClients.push(res);
+  req.on('close', () => {
+    sseClients = sseClients.filter(c => c !== res);
+  });
+});
+
 app.get('/', (req, res) => {
   if (!isReady && !qrCodeData) return res.send('<h1>Iniciando... recarga en 10 segundos</h1>');
   if (!isReady) {
     qrcode.toDataURL(qrCodeData).then(img => {
-      res.send(`<html><body style="font-family:sans-serif;text-align:center"><h2>Escanea con WhatsApp Business</h2><img src="${img}" style="width:280px"/><p>Recarga si expira</p></body></html>`);
+      res.send(`<html><body style="font-family:sans-serif;text-align:center">
+        <h2>Escanea con WhatsApp Business</h2>
+        <img src="${img}" style="width:280px"/>
+        <p>Recarga si expira</p>
+      </body></html>`);
     });
     return;
   }
 
-  // Agrupar grupos por sector
   const porSector = {};
   for (const sector of Object.keys(SECTORES)) porSector[sector] = [];
-
   GRUPOS_CACHE.forEach(g => {
     const sector = getSectorDeGrupo(g.name);
     if (!porSector[sector]) porSector[sector] = [];
@@ -248,10 +236,7 @@ app.get('/', (req, res) => {
   let sectoresHtml = '';
   for (const [sector, grupos] of Object.entries(porSector)) {
     if (grupos.length === 0) continue;
-
     const todoActivo = grupos.every(g => GRUPOS_ACTIVOS.includes(g.id));
-    const sectorApagado = SECTORES_APAGADOS.includes(sector);
-
     const gruposDelSector = grupos.map(g => {
       const activo = GRUPOS_ACTIVOS.includes(g.id);
       const ahora = Date.now();
@@ -280,7 +265,12 @@ app.get('/', (req, res) => {
       </div>`;
   }
 
-  res.send(`<html><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
+  res.send(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WhatsApp Bot</title>
+  </head>
+  <body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
     <h2>🤖 WhatsApp Bot</h2>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:${botActivo?'#e8f5e9':'#fdecea'};border-radius:10px;margin-bottom:16px">
       <span style="font-weight:bold;font-size:16px">Bot ${botActivo?'✅ Activo':'⛔ Inactivo'}</span>
@@ -292,7 +282,41 @@ app.get('/', (req, res) => {
     <p style="color:#888;font-size:11px">📸 = responde también a fotos</p>
     <h3>Grupos (${GRUPOS_CACHE.length})</h3>
     ${sectoresHtml}
+
     <script>
+      // ✅ Pedir permiso de notificaciones al cargar
+      async function pedirPermiso() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+      }
+      pedirPermiso();
+
+      // ✅ Escuchar eventos del servidor
+      const evtSource = new EventSource('/eventos');
+      evtSource.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        mostrarNotificacion(data.grupo, data.mensaje, data.hora);
+      };
+
+      function mostrarNotificacion(grupo, mensaje, hora) {
+        // Notificación del sistema (push)
+        if (Notification.permission === 'granted') {
+          new Notification('✅ Bot respondió', {
+            body: grupo + ' — ' + hora,
+            icon: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
+            tag: 'bot-reply'
+          });
+        }
+        // Toast visual en el panel también
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;top:16px;right:16px;background:#25D366;color:white;padding:12px 18px;border-radius:12px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:9999;max-width:280px';
+        toast.innerHTML = '<b>✅ Bot respondió</b><br>' + grupo + '<br><span style="font-size:12px;opacity:0.85">' + hora + '</span>';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 6000);
+      }
+
       async function toggleBot(){await fetch('/toggle',{method:'POST'});location.reload();}
       async function toggleGrupo(id){await fetch('/grupo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});location.reload();}
       async function toggleSector(sector){await fetch('/sector',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector})});location.reload();}
@@ -315,24 +339,15 @@ app.post('/grupo', (req, res) => {
   res.json({grupos: GRUPOS_ACTIVOS});
 });
 
-// ✅ Nuevo endpoint: activar/desactivar sector completo
 app.post('/sector', (req, res) => {
   const {sector} = req.body;
   const gruposDelSector = GRUPOS_CACHE.filter(g => getSectorDeGrupo(g.name) === sector);
   const todosActivos = gruposDelSector.every(g => GRUPOS_ACTIVOS.includes(g.id));
-
   if (todosActivos) {
-    // Desactivar todos
-    gruposDelSector.forEach(g => {
-      GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(id => id !== g.id);
-    });
+    gruposDelSector.forEach(g => { GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(id => id !== g.id); });
   } else {
-    // Activar todos
-    gruposDelSector.forEach(g => {
-      if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
-    });
+    gruposDelSector.forEach(g => { if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id); });
   }
-
   saveConfig();
   res.json({grupos: GRUPOS_ACTIVOS});
 });
