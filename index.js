@@ -48,10 +48,9 @@ const KEYWORDS_GLOBALES = [
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
   'tenemos pedido','box','un box','un motorizado','venir','pedidi',
-  'movilidad','movil','viniendo'
+  'movilidad','movil','viniendo','moto'
 ];
 
-// Grupos que arrancan siempre desactivados (solo activación manual)
 const SIEMPRE_INACTIVOS = [
   'DRIBOX 🏍️',
   'Reporte Deliverys ICA!! 🏍️💨',
@@ -79,7 +78,6 @@ const SECTORES = {
   'Sector La Angostura': [
     'Boletas locales','Don Alejandro -BOX DELYBERY','EL BORGO BOX DELIVERY'
   ],
-  // Los SIEMPRE_INACTIVOS van primero en Sector X
   'Sector X (otros)': [
     'DRIBOX 🏍️',
     'Reporte Deliverys ICA!! 🏍️💨',
@@ -111,7 +109,6 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE));
   } catch(e) {}
-  // ✅ Bot arranca siempre APAGADO
   return { botActivo: false, gruposActivos: [], gruposCache: [], sectoresApagados: [] };
 }
 
@@ -123,7 +120,6 @@ function saveConfig() {
 }
 
 let cfg = loadConfig();
-// ✅ Siempre forzar bot apagado al iniciar, ignorar lo que diga el config
 let botActivo = false;
 let GRUPOS_ACTIVOS = cfg.gruposActivos;
 let GRUPOS_CACHE = cfg.gruposCache || [];
@@ -163,17 +159,14 @@ client.on('ready', async () => {
     if (ib === -1) return -1;
     return ia - ib;
   });
-
   GRUPOS_CACHE.forEach(g => {
     const esInactivo = SIEMPRE_INACTIVOS.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
     if (esInactivo) {
-      // Forzar siempre desactivado al iniciar
       GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(id => id !== g.id);
       return;
     }
     if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
   });
-
   saveConfig();
   console.log('Listo');
 });
@@ -224,24 +217,13 @@ function getSectorDeGrupo(nombreGrupo) {
   return 'Sector X (otros)';
 }
 
-app.get('/manifest.json', (req, res) => {
-  res.sendFile(__dirname + '/manifest.json');
-});
-
-app.get('/sw.js', (req, res) => {
-  res.setHeader('Service-Worker-Allowed', '/');
-  res.sendFile(__dirname + '/sw.js');
-});
-
 app.get('/eventos', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
   sseClients.push(res);
-  req.on('close', () => {
-    sseClients = sseClients.filter(c => c !== res);
-  });
+  req.on('close', () => { sseClients = sseClients.filter(c => c !== res); });
 });
 
 app.get('/', (req, res) => {
@@ -303,7 +285,6 @@ app.get('/', (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>WhatsApp Bot</title>
-    <link rel="manifest" href="/manifest.json">
   </head>
   <body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
     <h2>🤖 WhatsApp Bot</h2>
@@ -317,45 +298,19 @@ app.get('/', (req, res) => {
     <p style="color:#888;font-size:11px">📸 = responde también a fotos | ⚠️ manual = solo se activa manualmente</p>
     <h3>Grupos (${GRUPOS_CACHE.length})</h3>
     ${sectoresHtml}
-
     <script>
-      async function pedirPermiso() {
-        if (!('serviceWorker' in navigator) || !('Notification' in window)) return;
-        try {
-          await navigator.serviceWorker.register('/sw.js');
-          if (Notification.permission === 'default') {
-            await Notification.requestPermission();
-          }
-        } catch(e) {
-          console.error('Error SW:', e);
-        }
-      }
-      pedirPermiso();
-
       const evtSource = new EventSource('/eventos');
       evtSource.onmessage = (e) => {
         const data = JSON.parse(e.data);
         mostrarNotificacion(data.grupo, data.hora);
       };
-
       function mostrarNotificacion(grupo, hora) {
-        if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-          navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification('✅ Bot respondió', {
-              body: grupo + ' · ' + hora,
-              icon: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
-              vibrate: [200, 100, 200],
-              tag: 'bot-reply'
-            });
-          });
-        }
         const toast = document.createElement('div');
         toast.style.cssText = 'position:fixed;top:16px;right:16px;background:#25D366;color:white;padding:12px 18px;border-radius:12px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:9999;max-width:280px';
         toast.innerHTML = '<b>✅ Bot respondió</b><br>' + grupo + '<br><span style="font-size:12px;opacity:0.85">' + hora + '</span>';
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 6000);
       }
-
       async function toggleBot(){await fetch('/toggle',{method:'POST'});location.reload();}
       async function toggleGrupo(id){await fetch('/grupo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});location.reload();}
       async function toggleSector(sector){await fetch('/sector',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector})});location.reload();}
