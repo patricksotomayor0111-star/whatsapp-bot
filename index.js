@@ -146,6 +146,17 @@ const client = new Client({
 
 client.on('qr', (qr) => { qrCodeData = qr; });
 
+client.on('disconnected', (reason) => {
+  console.log('Desconectado:', reason);
+  isReady = false;
+  qrCodeData = '';
+  botActivo = false;
+  saveConfig();
+  setTimeout(() => {
+    client.initialize();
+  }, 3000);
+});
+
 client.on('ready', async () => {
   isReady = true;
   const chats = await client.getChats();
@@ -328,7 +339,7 @@ app.post('/toggle', (req, res) => {
 app.post('/grupo', (req, res) => {
   const {id} = req.body;
   if (GRUPOS_ACTIVOS.includes(id)) GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(g => g !== id);
-  else GRUPOS_ACTIVOS.push(id);
+  else GRUPOS_ACTIVOS.push(g => g !== id);
   saveConfig();
   res.json({grupos: GRUPOS_ACTIVOS});
 });
