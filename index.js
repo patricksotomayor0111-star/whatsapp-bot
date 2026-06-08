@@ -146,6 +146,7 @@ const client = new Client({
 
 client.on('qr', (qr) => { qrCodeData = qr; });
 
+// ✅ Reinicia el proceso completo al desconectarse
 client.on('disconnected', (reason) => {
   console.log('Desconectado:', reason);
   isReady = false;
@@ -153,8 +154,8 @@ client.on('disconnected', (reason) => {
   botActivo = false;
   saveConfig();
   setTimeout(() => {
-    client.initialize();
-  }, 3000);
+    process.exit(0);
+  }, 1000);
 });
 
 client.on('ready', async () => {
@@ -336,10 +337,11 @@ app.post('/toggle', (req, res) => {
   res.json({activo: botActivo});
 });
 
+// ✅ Bug corregido: era push(g => g !== id), ahora es push(id)
 app.post('/grupo', (req, res) => {
   const {id} = req.body;
   if (GRUPOS_ACTIVOS.includes(id)) GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(g => g !== id);
-  else GRUPOS_ACTIVOS.push(g => g !== id);
+  else GRUPOS_ACTIVOS.push(id);
   saveConfig();
   res.json({grupos: GRUPOS_ACTIVOS});
 });
