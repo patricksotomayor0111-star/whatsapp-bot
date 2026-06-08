@@ -32,12 +32,50 @@ const NUMEROS_IGNORADOS = [
   '51910795590','910795590','51910 795 590','910 795 590'
 ];
 
+const GRUPOS_FOTO = [
+  'CANTONES - BOX DELIVERY',
+  'CHIFA LIU BOX DELIVERY',
+  'CARTAS RESTAURANTES'
+];
+
+const ORDEN_GRUPOS = [
+  'LA BUMANGUESA BOX DELIVERY',
+  'MONKEY DONUTS BOX DELIVERY',
+  'PEÑONETTI BOX DELIVERY',
+  'SHAWABURGUER BOX DELIVERY',
+  'BRUCES BOX DELIVERY',
+  'PUNTO CALIENTE - BOX DELIVERY',
+  'THE CROWN BOX DELIVERY',
+  'HARVEST BOX DELIVERY',
+  'RICOS PROTEIN - BOX DELIVERY',
+  'AYABACA - BUMANGUESA II',
+  'MISKY POLLERIA (dribox)',
+  'KAM LONG PEDIDOS',
+  'BOCHITOS BOX DELIVERY',
+  'LAS NIEVES BOX DELIVERY',
+  'BUBATON BOX DELIVERY',
+  'CRAZY CORN 🌭🧋🤗',
+  'CHIFA LIU BOX DELIVERY',
+  'McGrill Restaurante BOX DELIVERY',
+  'REST CENTRO BOX DELIVERY',
+  'DELIVERY BOX / LAGUNILLA',
+  'ARTIA PASTELERIA (dribox)',
+  'CANTONES - BOX DELIVERY',
+  'Hugo Restaurante BOX DELIVERY',
+  'KANASTAS BOX DELIVERY',
+  'PIM PAM POLLO BOX DELIVERY',
+  'Don Alejandro -BOX DELYBERY',
+  'EL BORGO BOX DELIVERY',
+  'CARTAS RESTAURANTES'
+];
+
 const KEYWORDS = [
   'pedido listo','motorizado','un delivery','delivery para el local',
   'pedido en 5 minutos','pedido','pueden venir','ya esta listo el pedido',
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
-  'tenemos pedido','box','un box','un motorizado','venir','pedidi'
+  'tenemos pedido','box','un box','un motorizado','venir','pedidi',
+  'movilidad','movil'
 ];
 
 function similarEnough(texto, keyword) {
@@ -98,20 +136,19 @@ client.on('ready', async () => {
   const chats = await client.getChats();
   const grupos = chats.filter(c => c.isGroup);
   GRUPOS_CACHE = grupos.map(g => ({ id: g.id._serialized, name: g.name }));
+  GRUPOS_CACHE.sort((a, b) => {
+    const ia = ORDEN_GRUPOS.indexOf(a.name);
+    const ib = ORDEN_GRUPOS.indexOf(b.name);
+    if (ia === -1 && ib === -1) return 0;
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
   GRUPOS_CACHE.forEach(g => {
     if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
   });
   saveConfig();
-  console.log('Listo, grupos en cache: ' + GRUPOS_CACHE.length);
-});
-
-client.on('group_join', async (n) => {
-  const chat = await n.id;
-  if (!GRUPOS_CACHE.find(g => g.id === chat._serialized)) {
-    GRUPOS_CACHE.push({ id: chat._serialized, name: n.id.user });
-    GRUPOS_ACTIVOS.push(chat._serialized);
-    saveConfig();
-  }
+  console.log('Listo');
 });
 
 client.on('message', async (msg) => {
@@ -121,9 +158,17 @@ client.on('message', async (msg) => {
   if (!GRUPOS_ACTIVOS.includes(chat.id._serialized)) return;
   const numero = msg.author ? msg.author.replace('@c.us','') : msg.from.replace('@c.us','');
   if (NUMEROS_IGNORADOS.includes(numero)) return;
-  const texto = msg.body;
-  const found = KEYWORDS.find(k => similarEnough(texto, k));
-  if (!found) return;
+
+  const esFoto = msg.hasMedia && msg.type === 'image';
+  const esFotoGrupo = GRUPOS_FOTO.some(nombre =>
+    chat.name.toLowerCase().includes(nombre.toLowerCase())
+  );
+
+  const texto = msg.body || '';
+  const tieneKeyword = KEYWORDS.find(k => similarEnough(texto, k));
+
+  if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
+
   const ahora = Date.now();
   const key = chat.id._serialized;
   if (lastReply[key] && ahora - lastReply[key] < COOLDOWN) return;
@@ -146,9 +191,11 @@ app.get('/', (req, res) => {
     const ahora = Date.now();
     const tiempoRestante = lastReply[g.id] ? Math.max(0, Math.ceil((COOLDOWN - (ahora - lastReply[g.id])) / 1000 / 60)) : 0;
     const cooldownInfo = tiempoRestante > 0 ? `<span style="font-size:11px;color:#e67e22"> ⏱ ${tiempoRestante} min</span>` : '';
+    const esFotoGrupo = GRUPOS_FOTO.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
+    const fotoTag = esFotoGrupo ? `<span style="font-size:10px;color:#3498db"> 📸</span>` : '';
     return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee">
-      <span style="font-size:14px">${g.name}${cooldownInfo}</span>
+      <span style="font-size:14px">${g.name}${fotoTag}${cooldownInfo}</span>
       <button onclick="toggleGrupo('${g.id}')" style="padding:6px 16px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:13px">
         ${activo?'Activo':'Inactivo'}
       </button>
@@ -164,6 +211,7 @@ app.get('/', (req, res) => {
       </button>
     </div>
     <p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"${AUTO_REPLY}"</b> | Se apaga solo al responder</p>
+    <p style="color:#888;font-size:11px">📸 = responde también a fotos</p>
     <h3>Grupos (${GRUPOS_CACHE.length})</h3>
     ${gruposHtml}
     <script>
