@@ -2,11 +2,17 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const qrcode = require('qrcode');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-const CONFIG_FILE = '/tmp/config.json';
+// 📌 Directorio para almacenamiento persistente en Railway (Requiere montar un volumen en /app/data)
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 
 const NUMEROS_IGNORADOS = [
   '51942535017','942535017','51942 535 017','942 535 017',
@@ -108,20 +114,22 @@ function similarEnough(texto, keyword) {
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE));
-  } catch(e) {}
+  } catch(e) { console.error("Error leyendo configuración:", e); }
   return { botActivo: false, gruposActivos: [], gruposCache: [], sectoresApagados: [] };
 }
 
 function saveConfig() {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-    botActivo, gruposActivos: GRUPOS_ACTIVOS,
-    gruposCache: GRUPOS_CACHE, sectoresApagados: SECTORES_APAGADOS
-  }));
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({
+      botActivo, gruposActivos: GRUPOS_ACTIVOS,
+      gruposCache: GRUPOS_CACHE, sectoresApagados: SECTORES_APAGADOS
+    }, null, 2));
+  } catch(e) { console.error("Error guardando configuración:", e); }
 }
 
 let cfg = loadConfig();
-let botActivo = false;
-let GRUPOS_ACTIVOS = cfg.gruposActivos;
+let botActivo = cfg.botActivo || false;
+let GRUPOS_ACTIVOS = cfg.gruposActivos || [];
 let GRUPOS_CACHE = cfg.gruposCache || [];
 let SECTORES_APAGADOS = cfg.sectoresApagados || [];
 let qrCodeData = '';
@@ -139,14 +147,27 @@ function enviarNotificacion(grupo, hora) {
   });
 }
 
+// 📌 Configuración de Puppeteer adaptada a entornos de Railway (Linux Containers)
 const client = new Client({
-  authStrategy: new LocalAuth(),
-  puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+  authStrategy: new LocalAuth({
+    dataPath: DATA_DIR
+  }),
+  puppeteer: { 
+    headless: true,
+    args: [
+      '--no-sandbox', 
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu'
+    ] 
+  }
 });
 
 client.on('qr', (qr) => { qrCodeData = qr; });
 
-// ✅ Reinicia el proceso completo al desconectarse
 client.on('disconnected', (reason) => {
   console.log('Desconectado:', reason);
   isReady = false;
@@ -154,12 +175,13 @@ client.on('disconnected', (reason) => {
   botActivo = false;
   saveConfig();
   setTimeout(() => {
-    process.exit(0);
+    process.exit(1);
   }, 1000);
 });
 
 client.on('ready', async () => {
   isReady = true;
+  qrCodeData = '';
   const chats = await client.getChats();
   const grupos = chats.filter(c => c.isGroup);
   GRUPOS_CACHE = grupos.map(g => ({ id: g.id._serialized, name: g.name }));
@@ -212,13 +234,16 @@ client.on('message', async (msg) => {
   const key = chat.id._serialized;
   if (lastReply[key] && ahora - lastReply[key] < COOLDOWN) return;
   lastReply[key] = ahora;
-  await msg.reply(AUTO_REPLY);
-
-  const hora = new Date().toLocaleTimeString('es-PE');
-  enviarNotificacion(chat.name, hora);
-
-  botActivo = false;
-  saveConfig();
+  
+  try {
+    await msg.reply(AUTO_REPLY);
+    const hora = new Date().toLocaleTimeString('es-PE', { timeZone: 'America/Lima' });
+    enviarNotificacion(chat.name, hora);
+    botActivo = false;
+    saveConfig();
+  } catch(e) {
+    console.error("Error al responder mensaje:", e);
+  }
 });
 
 function getSectorDeGrupo(nombreGrupo) {
@@ -263,6 +288,7 @@ app.get('/', (req, res) => {
   for (const [sector, grupos] of Object.entries(porSector)) {
     if (grupos.length === 0) continue;
     const todoActivo = grupos.every(g => GRUPOS_ACTIVOS.includes(g.id));
+    
     const gruposDelSector = grupos.map(g => {
       const activo = GRUPOS_ACTIVOS.includes(g.id);
       const ahora = Date.now();
@@ -281,13 +307,18 @@ app.get('/', (req, res) => {
         </div>`;
     }).join('');
 
+    // 🛠️ Cambiado aquí: Oculta el botón masivo si es el sector X (otros)
+    const botonSectorHtml = sector === 'Sector X (otros)' 
+      ? `<span style="font-size:12px;color:#7f8c8d;font-style:italic;font-weight:normal;">Activación manual</span>`
+      : `<button onclick="toggleSector('${sector}')" style="padding:6px 16px;border-radius:20px;border:none;background:${todoActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:13px">
+            ${todoActivo?'Desactivar sector':'Activar sector'}
+         </button>`;
+
     sectoresHtml += `
       <div style="margin-bottom:16px;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f7f7f7">
           <span style="font-weight:600;font-size:15px">📍 ${sector}</span>
-          <button onclick="toggleSector('${sector}')" style="padding:6px 16px;border-radius:20px;border:none;background:${todoActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:13px">
-            ${todoActivo?'Desactivar sector':'Activar sector'}
-          </button>
+          ${botonSectorHtml}
         </div>
         ${gruposDelSector}
       </div>`;
@@ -337,7 +368,6 @@ app.post('/toggle', (req, res) => {
   res.json({activo: botActivo});
 });
 
-// ✅ Bug corregido: era push(g => g !== id), ahora es push(id)
 app.post('/grupo', (req, res) => {
   const {id} = req.body;
   if (GRUPOS_ACTIVOS.includes(id)) GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(g => g !== id);
@@ -348,6 +378,9 @@ app.post('/grupo', (req, res) => {
 
 app.post('/sector', (req, res) => {
   const {sector} = req.body;
+  // Si por error intentan pegarle al sector X desde la API, no ejecutará el cambio masivo
+  if (sector === 'Sector X (otros)') return res.json({grupos: GRUPOS_ACTIVOS});
+
   const gruposDelSector = GRUPOS_CACHE.filter(g => getSectorDeGrupo(g.name) === sector);
   const todosActivos = gruposDelSector.every(g => GRUPOS_ACTIVOS.includes(g.id));
   if (todosActivos) {
@@ -359,5 +392,7 @@ app.post('/sector', (req, res) => {
   res.json({grupos: GRUPOS_ACTIVOS});
 });
 
-app.listen(3000, () => console.log('Servidor activo'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor activo en puerto ${PORT}`));
+
 client.initialize();
