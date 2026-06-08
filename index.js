@@ -109,13 +109,20 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE));
   } catch(e) {}
-  return { botActivo: false, gruposActivos: [], gruposCache: [], sectoresApagados: [] };
+  return {
+    botActivo: false,
+    gruposActivos: [],
+    gruposCache: [],
+    sectoresApagados: []
+  };
 }
 
 function saveConfig() {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-    botActivo, gruposActivos: GRUPOS_ACTIVOS,
-    gruposCache: GRUPOS_CACHE, sectoresApagados: SECTORES_APAGADOS
+    botActivo,
+    gruposActivos: GRUPOS_ACTIVOS,
+    gruposCache: GRUPOS_CACHE,
+    sectoresApagados: SECTORES_APAGADOS
   }));
 }
 
@@ -123,6 +130,7 @@ let cfg = loadConfig();
 let botActivo = false;
 let GRUPOS_ACTIVOS = cfg.gruposActivos;
 let GRUPOS_CACHE = cfg.gruposCache || [];
+// ✅ SECTORES_APAGADOS es el switch maestro — no toca estados individuales
 let SECTORES_APAGADOS = cfg.sectoresApagados || [];
 let qrCodeData = '';
 let isReady = false;
@@ -152,9 +160,7 @@ client.on('disconnected', (reason) => {
   qrCodeData = '';
   botActivo = false;
   saveConfig();
-  setTimeout(() => {
-    process.exit(0);
-  }, 1000);
+  setTimeout(() => { process.exit(0); }, 1000);
 });
 
 client.on('ready', async () => {
@@ -186,7 +192,13 @@ client.on('message', async (msg) => {
   if (!botActivo) return;
   const chat = await msg.getChat();
   if (!chat.isGroup) return;
-  if (!GRUPOS_ACTIVOS.includes(chat.id._serialized)) return;
+
+  const chatId = chat.id._serialized;
+  if (!GRUPOS_ACTIVOS.includes(chatId)) return;
+
+  // ✅ Verificar switch maestro del sector
+  const sectorDelGrupo = getSectorDeGrupo(chat.name);
+  if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
 
   const numero = msg.author ? msg.author.replace('@c.us','') : msg.from.replace('@c.us','');
   if (NUMEROS_IGNORADOS.includes(numero)) return;
@@ -208,7 +220,7 @@ client.on('message', async (msg) => {
   if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
 
   const ahora = Date.now();
-  const key = chat.id._serialized;
+  const key = chatId;
   if (lastReply[key] && ahora - lastReply[key] < COOLDOWN) return;
   lastReply[key] = ahora;
   await msg.reply(AUTO_REPLY);
@@ -261,7 +273,10 @@ app.get('/', (req, res) => {
   let sectoresHtml = '';
   for (const [sector, grupos] of Object.entries(porSector)) {
     if (grupos.length === 0) continue;
-    const todoActivo = grupos.every(g => GRUPOS_ACTIVOS.includes(g.id));
+
+    // ✅ Switch maestro: no mira estados individuales, solo si el sector está apagado
+    const sectorActivo = !SECTORES_APAGADOS.includes(sector);
+
     const gruposDelSector = grupos.map(g => {
       const activo = GRUPOS_ACTIVOS.includes(g.id);
       const ahora = Date.now();
@@ -271,8 +286,10 @@ app.get('/', (req, res) => {
       const fotoTag = esFotoGrupo ? `<span style="font-size:10px;color:#3498db"> 📸</span>` : '';
       const esInactivo = SIEMPRE_INACTIVOS.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
       const tagManual = esInactivo ? `<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>` : '';
+      // Si el sector está apagado, mostrar grupos atenuados
+      const opacidad = !sectorActivo ? 'opacity:0.45;' : '';
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;${opacidad}">
           <span style="font-size:13px;color:#444">${g.name}${fotoTag}${tagManual}${cooldownInfo}</span>
           <button onclick="toggleGrupo('${g.id}')" style="padding:5px 14px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:12px">
             ${activo?'Activo':'Inactivo'}
@@ -280,18 +297,13 @@ app.get('/', (req, res) => {
         </div>`;
     }).join('');
 
-    // 🛠️ Único cambio: Si el sector es 'Sector X (otros)', no renderiza botón de activación grupal
-    const botonSectorHtml = sector === 'Sector X (otros)' 
-      ? `<span style="font-size:11px;color:#7f8c8d;font-style:italic">Solo manual</span>`
-      : `<button onclick="toggleSector('${sector}')" style="padding:6px 16px;border-radius:20px;border:none;background:${todoActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:13px">
-            ${todoActivo?'Desactivar sector':'Activar sector'}
-         </button>`;
-
     sectoresHtml += `
-      <div style="margin-bottom:16px;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f7f7f7">
+      <div style="margin-bottom:16px;border:2px solid ${sectorActivo?'#e0e0e0':'#e74c3c'};border-radius:12px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:${sectorActivo?'#f7f7f7':'#fdecea'}">
           <span style="font-weight:600;font-size:15px">📍 ${sector}</span>
-          ${botonSectorHtml}
+          <button onclick="toggleSector('${sector}')" style="padding:6px 16px;border-radius:20px;border:none;background:${sectorActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:13px">
+            ${sectorActivo?'Sector ON ✅':'Sector OFF ⛔'}
+          </button>
         </div>
         ${gruposDelSector}
       </div>`;
@@ -311,7 +323,7 @@ app.get('/', (req, res) => {
       </button>
     </div>
     <p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"${AUTO_REPLY}"</b> | Se apaga solo al responder</p>
-    <p style="color:#888;font-size:11px">📸 = responde también a fotos | ⚠️ manual = solo se activa manualmente</p>
+    <p style="color:#888;font-size:11px">📸 = fotos | ⚠️ manual = solo activación manual | Sector OFF = bloquea todo el sector</p>
     <h3>Grupos (${GRUPOS_CACHE.length})</h3>
     ${sectoresHtml}
     <script>
@@ -323,4 +335,44 @@ app.get('/', (req, res) => {
       function mostrarNotificacion(grupo, hora) {
         const toast = document.createElement('div');
         toast.style.cssText = 'position:fixed;top:16px;right:16px;background:#25D366;color:white;padding:12px 18px;border-radius:12px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:9999;max-width:280px';
-        toast.innerHTML = '<b>✅ Bot respondió</b><br>' + grupo + '<br><span style="font-size:12px;opacity:0.85">' + hora + '</span>
+        toast.innerHTML = '<b>✅ Bot respondió</b><br>' + grupo + '<br><span style="font-size:12px;opacity:0.85">' + hora + '</span>';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 6000);
+      }
+      async function toggleBot(){await fetch('/toggle',{method:'POST'});location.reload();}
+      async function toggleGrupo(id){await fetch('/grupo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});location.reload();}
+      async function toggleSector(sector){await fetch('/sector',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector})});location.reload();}
+    </script>
+  </body></html>`);
+});
+
+app.post('/toggle', (req, res) => {
+  botActivo = !botActivo;
+  if (botActivo) Object.keys(lastReply).forEach(k => delete lastReply[k]);
+  saveConfig();
+  res.json({activo: botActivo});
+});
+
+app.post('/grupo', (req, res) => {
+  const {id} = req.body;
+  if (GRUPOS_ACTIVOS.includes(id)) GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(g => g !== id);
+  else GRUPOS_ACTIVOS.push(id);
+  saveConfig();
+  res.json({grupos: GRUPOS_ACTIVOS});
+});
+
+// ✅ Switch maestro: solo agrega/quita el sector de SECTORES_APAGADOS
+// No toca GRUPOS_ACTIVOS para nada
+app.post('/sector', (req, res) => {
+  const {sector} = req.body;
+  if (SECTORES_APAGADOS.includes(sector)) {
+    SECTORES_APAGADOS = SECTORES_APAGADOS.filter(s => s !== sector);
+  } else {
+    SECTORES_APAGADOS.push(sector);
+  }
+  saveConfig();
+  res.json({sectoresApagados: SECTORES_APAGADOS});
+});
+
+app.listen(3000, () => console.log('Servidor activo'));
+client.initialize();
