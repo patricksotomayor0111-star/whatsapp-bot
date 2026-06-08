@@ -65,21 +65,16 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE));
   } catch(e) {}
-  return { botActivo: true, gruposActivos: [], gruposCache: [] };
+  return { botActivo: true, gruposActivos: [] };
 }
 
 function saveConfig() {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-    botActivo,
-    gruposActivos: GRUPOS_ACTIVOS,
-    gruposCache: GRUPOS_CACHE
-  }));
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ botActivo, gruposActivos: GRUPOS_ACTIVOS }));
 }
 
 let cfg = loadConfig();
 let botActivo = cfg.botActivo;
 let GRUPOS_ACTIVOS = cfg.gruposActivos;
-let GRUPOS_CACHE = cfg.gruposCache || [];
 let qrCodeData = '';
 let isReady = false;
 const lastReply = {};
@@ -92,26 +87,15 @@ const client = new Client({
 });
 
 client.on('qr', (qr) => { qrCodeData = qr; });
-
 client.on('ready', async () => {
   isReady = true;
   const chats = await client.getChats();
-  const grupos = chats.filter(c => c.isGroup);
-  GRUPOS_CACHE = grupos.map(g => ({ id: g.id._serialized, name: g.name }));
-  GRUPOS_CACHE.forEach(g => {
-    if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
+  const todosGrupos = chats.filter(c => c.isGroup).map(c => c.id._serialized);
+  todosGrupos.forEach(id => {
+    if (!GRUPOS_ACTIVOS.includes(id)) GRUPOS_ACTIVOS.push(id);
   });
   saveConfig();
-  console.log('Listo, grupos en cache: ' + GRUPOS_CACHE.length);
-});
-
-client.on('group_join', async (n) => {
-  const chat = await n.id;
-  if (!GRUPOS_CACHE.find(g => g.id === chat._serialized)) {
-    GRUPOS_CACHE.push({ id: chat._serialized, name: n.id.user });
-    GRUPOS_ACTIVOS.push(chat._serialized);
-    saveConfig();
-  }
+  console.log('Listo');
 });
 
 client.on('message', async (msg) => {
@@ -131,25 +115,27 @@ client.on('message', async (msg) => {
   await msg.reply(AUTO_REPLY);
   botActivo = false;
   saveConfig();
+  console.log('Bot desactivado tras responder en: ' + chat.name);
 });
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   if (!isReady && !qrCodeData) return res.send('<h1>Iniciando... recarga en 10 segundos</h1>');
   if (!isReady) {
-    qrcode.toDataURL(qrCodeData).then(img => {
-      res.send(`<html><body style="font-family:sans-serif;text-align:center"><h2>Escanea con WhatsApp Business</h2><img src="${img}" style="width:280px"/><p>Recarga si expira</p></body></html>`);
-    });
-    return;
+    const img = await qrcode.toDataURL(qrCodeData);
+    return res.send(`<html><body style="font-family:sans-serif;text-align:center"><h2>Escanea con WhatsApp Business</h2><img src="${img}" style="width:280px"/><p>Recarga si expira</p></body></html>`);
   }
-  const gruposHtml = GRUPOS_CACHE.map(g => {
-    const activo = GRUPOS_ACTIVOS.includes(g.id);
+  const chats = await client.getChats();
+  const grupos = chats.filter(c => c.isGroup);
+  const gruposHtml = grupos.map(g => {
+    const activo = GRUPOS_ACTIVOS.includes(g.id._serialized);
     const ahora = Date.now();
-    const tiempoRestante = lastReply[g.id] ? Math.max(0, Math.ceil((COOLDOWN - (ahora - lastReply[g.id])) / 1000 / 60)) : 0;
+    const key = g.id._serialized;
+    const tiempoRestante = lastReply[key] ? Math.max(0, Math.ceil((COOLDOWN - (ahora - lastReply[key])) / 1000 / 60)) : 0;
     const cooldownInfo = tiempoRestante > 0 ? `<span style="font-size:11px;color:#e67e22"> ⏱ ${tiempoRestante} min</span>` : '';
     return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee">
       <span style="font-size:14px">${g.name}${cooldownInfo}</span>
-      <button onclick="toggleGrupo('${g.id}')" style="padding:6px 16px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:13px">
+      <button onclick="toggleGrupo('${g.id._serialized}')" style="padding:6px 16px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:13px">
         ${activo?'Activo':'Inactivo'}
       </button>
     </div>`;
@@ -164,7 +150,7 @@ app.get('/', (req, res) => {
       </button>
     </div>
     <p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"${AUTO_REPLY}"</b> | Se apaga solo al responder</p>
-    <h3>Grupos (${GRUPOS_CACHE.length})</h3>
+    <h3>Grupos (${grupos.length})</h3>
     ${gruposHtml}
     <script>
       async function toggleBot(){await fetch('/toggle',{method:'POST'});location.reload();}
