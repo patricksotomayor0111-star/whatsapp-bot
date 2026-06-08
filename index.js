@@ -38,45 +38,65 @@ const GRUPOS_FOTO = [
   'CARTAS RESTAURANTES'
 ];
 
-const ORDEN_GRUPOS = [
-  'LA BUMANGUESA BOX DELIVERY',
-  'MONKEY DONUTS BOX DELIVERY',
-  'PEÑONETTI BOX DELIVERY',
-  'SHAWABURGUER BOX DELIVERY',
-  'BRUCES BOX DELIVERY',
-  'PUNTO CALIENTE - BOX DELIVERY',
-  'THE CROWN BOX DELIVERY',
-  'HARVEST BOX DELIVERY',
-  'RICOS PROTEIN - BOX DELIVERY',
-  'AYABACA - BUMANGUESA II',
-  'MISKY POLLERIA (dribox)',
-  'KAM LONG PEDIDOS',
-  'BOCHITOS BOX DELIVERY',
-  'LAS NIEVES BOX DELIVERY',
-  'BUBATON BOX DELIVERY',
-  'CRAZY CORN 🌭🧋🤗',
-  'CHIFA LIU BOX DELIVERY',
-  'McGrill Restaurante BOX DELIVERY',
-  'REST CENTRO BOX DELIVERY',
-  'DELIVERY BOX / LAGUNILLA',
-  'ARTIA PASTELERIA (dribox)',
-  'CANTONES - BOX DELIVERY',
-  'Hugo Restaurante BOX DELIVERY',
-  'KANASTAS BOX DELIVERY',
-  'PIM PAM POLLO BOX DELIVERY',
-  'Don Alejandro -BOX DELYBERY',
-  'EL BORGO BOX DELIVERY',
-  'CARTAS RESTAURANTES'
-];
+// ✅ KEYWORDS ESPECIALES POR GRUPO
+const KEYWORDS_ESPECIALES = {
+  'AYABACA - BUMANGUESA II': ['listo']
+};
 
-const KEYWORDS = [
+const KEYWORDS_GLOBALES = [
   'pedido listo','motorizado','un delivery','delivery para el local',
   'pedido en 5 minutos','pedido','pueden venir','ya esta listo el pedido',
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
   'tenemos pedido','box','un box','un motorizado','venir','pedidi',
-  'movilidad','movil'
+  'movilidad','movil','viniendo'  // ✅ "viniendo" agregado
 ];
+
+// ✅ SECTORES con sus grupos
+const SECTORES = {
+  'Sector PTB': [
+    'CARTAS RESTAURANTES',
+    'LA BUMANGUESA BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY',
+    'PEÑONETTI BOX DELIVERY',
+    'SHAWABURGUER BOX DELIVERY',
+    'BRUCES BOX DELIVERY',
+    'PUNTO CALIENTE - BOX DELIVERY'
+  ],
+  'Sector San José': [
+    'Hola',
+    'THE CROWN BOX DELIVERY',
+    'HARVEST BOX DELIVERY',
+    'RICOS PROTEIN - BOX DELIVERY',
+    'AYABACA - BUMANGUESA II',
+    'MISKY POLLERIA (dribox)',
+    'KAM LONG PEDIDOS',
+    'BOCHITOS BOX DELIVERY',
+    'LAS NIEVES BOX DELIVERY'
+  ],
+  'Sector Moderna': [
+    'BUBATON BOX DELIVERY',
+    'CRAZY CORN 🌭🧋🤗',
+    'CHIFA LIU BOX DELIVERY',
+    'McGrill Restaurante BOX DELIVERY',
+    'REST CENTRO BOX DELIVERY',
+    'DELIVERY BOX / LAGUNILLA',
+    'MISTER JUGO BOX DELIVERY',
+    'ARTIA PASTELERIA (dribox)',
+    'CANTONES - BOX DELIVERY',
+    'Hugo Restaurante BOX DELIVERY',
+    'KANASTAS BOX DELIVERY',
+    'PIM PAM POLLO BOX DELIVERY'
+  ],
+  'Sector La Angostura': [
+    'Boletas locales',
+    'Don Alejandro -BOX DELYBERY',
+    'EL BORGO BOX DELIVERY'
+  ],
+  'Sector X (otros)': []  // se llenará automáticamente con grupos no clasificados
+};
+
+const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
 function similarEnough(texto, keyword) {
   texto = texto.toLowerCase()
@@ -103,14 +123,15 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE));
   } catch(e) {}
-  return { botActivo: true, gruposActivos: [], gruposCache: [] };
+  return { botActivo: true, gruposActivos: [], gruposCache: [], sectoresApagados: [] };
 }
 
 function saveConfig() {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({
     botActivo,
     gruposActivos: GRUPOS_ACTIVOS,
-    gruposCache: GRUPOS_CACHE
+    gruposCache: GRUPOS_CACHE,
+    sectoresApagados: SECTORES_APAGADOS
   }));
 }
 
@@ -118,6 +139,7 @@ let cfg = loadConfig();
 let botActivo = cfg.botActivo;
 let GRUPOS_ACTIVOS = cfg.gruposActivos;
 let GRUPOS_CACHE = cfg.gruposCache || [];
+let SECTORES_APAGADOS = cfg.sectoresApagados || [];
 let qrCodeData = '';
 let isReady = false;
 const lastReply = {};
@@ -136,6 +158,8 @@ client.on('ready', async () => {
   const chats = await client.getChats();
   const grupos = chats.filter(c => c.isGroup);
   GRUPOS_CACHE = grupos.map(g => ({ id: g.id._serialized, name: g.name }));
+
+  // Ordenar: primero los del ORDEN, luego el resto (van a Sector X)
   GRUPOS_CACHE.sort((a, b) => {
     const ia = ORDEN_GRUPOS.indexOf(a.name);
     const ib = ORDEN_GRUPOS.indexOf(b.name);
@@ -144,9 +168,11 @@ client.on('ready', async () => {
     if (ib === -1) return -1;
     return ia - ib;
   });
+
   GRUPOS_CACHE.forEach(g => {
     if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
   });
+
   saveConfig();
   console.log('Listo');
 });
@@ -156,6 +182,7 @@ client.on('message', async (msg) => {
   const chat = await msg.getChat();
   if (!chat.isGroup) return;
   if (!GRUPOS_ACTIVOS.includes(chat.id._serialized)) return;
+
   const numero = msg.author ? msg.author.replace('@c.us','') : msg.from.replace('@c.us','');
   if (NUMEROS_IGNORADOS.includes(numero)) return;
 
@@ -165,7 +192,19 @@ client.on('message', async (msg) => {
   );
 
   const texto = msg.body || '';
-  const tieneKeyword = KEYWORDS.find(k => similarEnough(texto, k));
+
+  // Verificar keywords globales
+  let tieneKeyword = KEYWORDS_GLOBALES.find(k => similarEnough(texto, k));
+
+  // Verificar keywords especiales por grupo
+  if (!tieneKeyword) {
+    for (const [nombreGrupo, keywords] of Object.entries(KEYWORDS_ESPECIALES)) {
+      if (chat.name.toLowerCase().includes(nombreGrupo.toLowerCase())) {
+        tieneKeyword = keywords.find(k => similarEnough(texto, k));
+        if (tieneKeyword) break;
+      }
+    }
+  }
 
   if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
 
@@ -178,6 +217,15 @@ client.on('message', async (msg) => {
   saveConfig();
 });
 
+// ✅ Función para obtener sector de un grupo
+function getSectorDeGrupo(nombreGrupo) {
+  for (const [sector, grupos] of Object.entries(SECTORES)) {
+    if (sector === 'Sector X (otros)') continue;
+    if (grupos.some(g => g.toLowerCase() === nombreGrupo.toLowerCase())) return sector;
+  }
+  return 'Sector X (otros)';
+}
+
 app.get('/', (req, res) => {
   if (!isReady && !qrCodeData) return res.send('<h1>Iniciando... recarga en 10 segundos</h1>');
   if (!isReady) {
@@ -186,21 +234,51 @@ app.get('/', (req, res) => {
     });
     return;
   }
-  const gruposHtml = GRUPOS_CACHE.map(g => {
-    const activo = GRUPOS_ACTIVOS.includes(g.id);
-    const ahora = Date.now();
-    const tiempoRestante = lastReply[g.id] ? Math.max(0, Math.ceil((COOLDOWN - (ahora - lastReply[g.id])) / 1000 / 60)) : 0;
-    const cooldownInfo = tiempoRestante > 0 ? `<span style="font-size:11px;color:#e67e22"> ⏱ ${tiempoRestante} min</span>` : '';
-    const esFotoGrupo = GRUPOS_FOTO.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
-    const fotoTag = esFotoGrupo ? `<span style="font-size:10px;color:#3498db"> 📸</span>` : '';
-    return `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eee">
-      <span style="font-size:14px">${g.name}${fotoTag}${cooldownInfo}</span>
-      <button onclick="toggleGrupo('${g.id}')" style="padding:6px 16px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:13px">
-        ${activo?'Activo':'Inactivo'}
-      </button>
-    </div>`;
-  }).join('');
+
+  // Agrupar grupos por sector
+  const porSector = {};
+  for (const sector of Object.keys(SECTORES)) porSector[sector] = [];
+
+  GRUPOS_CACHE.forEach(g => {
+    const sector = getSectorDeGrupo(g.name);
+    if (!porSector[sector]) porSector[sector] = [];
+    porSector[sector].push(g);
+  });
+
+  let sectoresHtml = '';
+  for (const [sector, grupos] of Object.entries(porSector)) {
+    if (grupos.length === 0) continue;
+
+    const todoActivo = grupos.every(g => GRUPOS_ACTIVOS.includes(g.id));
+    const sectorApagado = SECTORES_APAGADOS.includes(sector);
+
+    const gruposDelSector = grupos.map(g => {
+      const activo = GRUPOS_ACTIVOS.includes(g.id);
+      const ahora = Date.now();
+      const tiempoRestante = lastReply[g.id] ? Math.max(0, Math.ceil((COOLDOWN - (ahora - lastReply[g.id])) / 1000 / 60)) : 0;
+      const cooldownInfo = tiempoRestante > 0 ? `<span style="font-size:11px;color:#e67e22"> ⏱ ${tiempoRestante} min</span>` : '';
+      const esFotoGrupo = GRUPOS_FOTO.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
+      const fotoTag = esFotoGrupo ? `<span style="font-size:10px;color:#3498db"> 📸</span>` : '';
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0">
+          <span style="font-size:13px;color:#444">${g.name}${fotoTag}${cooldownInfo}</span>
+          <button onclick="toggleGrupo('${g.id}')" style="padding:5px 14px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:12px">
+            ${activo?'Activo':'Inactivo'}
+          </button>
+        </div>`;
+    }).join('');
+
+    sectoresHtml += `
+      <div style="margin-bottom:16px;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f7f7f7">
+          <span style="font-weight:600;font-size:15px">📍 ${sector}</span>
+          <button onclick="toggleSector('${sector}')" style="padding:6px 16px;border-radius:20px;border:none;background:${todoActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:13px">
+            ${todoActivo?'Desactivar sector':'Activar sector'}
+          </button>
+        </div>
+        ${gruposDelSector}
+      </div>`;
+  }
 
   res.send(`<html><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
     <h2>🤖 WhatsApp Bot</h2>
@@ -213,10 +291,11 @@ app.get('/', (req, res) => {
     <p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"${AUTO_REPLY}"</b> | Se apaga solo al responder</p>
     <p style="color:#888;font-size:11px">📸 = responde también a fotos</p>
     <h3>Grupos (${GRUPOS_CACHE.length})</h3>
-    ${gruposHtml}
+    ${sectoresHtml}
     <script>
       async function toggleBot(){await fetch('/toggle',{method:'POST'});location.reload();}
       async function toggleGrupo(id){await fetch('/grupo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});location.reload();}
+      async function toggleSector(sector){await fetch('/sector',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sector})});location.reload();}
     </script>
   </body></html>`);
 });
@@ -232,6 +311,28 @@ app.post('/grupo', (req, res) => {
   const {id} = req.body;
   if (GRUPOS_ACTIVOS.includes(id)) GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(g => g !== id);
   else GRUPOS_ACTIVOS.push(id);
+  saveConfig();
+  res.json({grupos: GRUPOS_ACTIVOS});
+});
+
+// ✅ Nuevo endpoint: activar/desactivar sector completo
+app.post('/sector', (req, res) => {
+  const {sector} = req.body;
+  const gruposDelSector = GRUPOS_CACHE.filter(g => getSectorDeGrupo(g.name) === sector);
+  const todosActivos = gruposDelSector.every(g => GRUPOS_ACTIVOS.includes(g.id));
+
+  if (todosActivos) {
+    // Desactivar todos
+    gruposDelSector.forEach(g => {
+      GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(id => id !== g.id);
+    });
+  } else {
+    // Activar todos
+    gruposDelSector.forEach(g => {
+      if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
+    });
+  }
+
   saveConfig();
   res.json({grupos: GRUPOS_ACTIVOS});
 });
