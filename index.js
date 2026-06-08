@@ -51,6 +51,14 @@ const KEYWORDS_GLOBALES = [
   'movilidad','movil','viniendo'
 ];
 
+// Grupos que arrancan siempre desactivados (solo activación manual)
+const SIEMPRE_INACTIVOS = [
+  'DRIBOX 🏍️',
+  'Reporte Deliverys ICA!! 🏍️💨',
+  'SERVICIO DELIVERY RUMI-WASI',
+  'GRUPO DE MOTORIZADOS'
+];
+
 const SECTORES = {
   'Sector PTB': [
     'CARTAS RESTAURANTES','LA BUMANGUESA BOX DELIVERY','MONKEY DONUTS BOX DELIVERY',
@@ -71,7 +79,13 @@ const SECTORES = {
   'Sector La Angostura': [
     'Boletas locales','Don Alejandro -BOX DELYBERY','EL BORGO BOX DELIVERY'
   ],
-  'Sector X (otros)': []
+  // Los SIEMPRE_INACTIVOS van primero en Sector X
+  'Sector X (otros)': [
+    'DRIBOX 🏍️',
+    'Reporte Deliverys ICA!! 🏍️💨',
+    'SERVICIO DELIVERY RUMI-WASI',
+    'GRUPO DE MOTORIZADOS'
+  ]
 };
 
 const ORDEN_GRUPOS = Object.values(SECTORES).flat();
@@ -97,7 +111,8 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE));
   } catch(e) {}
-  return { botActivo: true, gruposActivos: [], gruposCache: [], sectoresApagados: [] };
+  // ✅ Bot arranca siempre APAGADO
+  return { botActivo: false, gruposActivos: [], gruposCache: [], sectoresApagados: [] };
 }
 
 function saveConfig() {
@@ -108,7 +123,8 @@ function saveConfig() {
 }
 
 let cfg = loadConfig();
-let botActivo = cfg.botActivo;
+// ✅ Siempre forzar bot apagado al iniciar, ignorar lo que diga el config
+let botActivo = false;
 let GRUPOS_ACTIVOS = cfg.gruposActivos;
 let GRUPOS_CACHE = cfg.gruposCache || [];
 let SECTORES_APAGADOS = cfg.sectoresApagados || [];
@@ -147,9 +163,17 @@ client.on('ready', async () => {
     if (ib === -1) return -1;
     return ia - ib;
   });
+
   GRUPOS_CACHE.forEach(g => {
+    const esInactivo = SIEMPRE_INACTIVOS.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
+    if (esInactivo) {
+      // Forzar siempre desactivado al iniciar
+      GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(id => id !== g.id);
+      return;
+    }
     if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
   });
+
   saveConfig();
   console.log('Listo');
 });
@@ -252,9 +276,11 @@ app.get('/', (req, res) => {
       const cooldownInfo = tiempoRestante > 0 ? `<span style="font-size:11px;color:#e67e22"> ⏱ ${tiempoRestante} min</span>` : '';
       const esFotoGrupo = GRUPOS_FOTO.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
       const fotoTag = esFotoGrupo ? `<span style="font-size:10px;color:#3498db"> 📸</span>` : '';
+      const esInactivo = SIEMPRE_INACTIVOS.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
+      const tagManual = esInactivo ? `<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>` : '';
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0">
-          <span style="font-size:13px;color:#444">${g.name}${fotoTag}${cooldownInfo}</span>
+          <span style="font-size:13px;color:#444">${g.name}${fotoTag}${tagManual}${cooldownInfo}</span>
           <button onclick="toggleGrupo('${g.id}')" style="padding:5px 14px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:12px">
             ${activo?'Activo':'Inactivo'}
           </button>
@@ -288,7 +314,7 @@ app.get('/', (req, res) => {
       </button>
     </div>
     <p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"${AUTO_REPLY}"</b> | Se apaga solo al responder</p>
-    <p style="color:#888;font-size:11px">📸 = responde también a fotos</p>
+    <p style="color:#888;font-size:11px">📸 = responde también a fotos | ⚠️ manual = solo se activa manualmente</p>
     <h3>Grupos (${GRUPOS_CACHE.length})</h3>
     ${sectoresHtml}
 
