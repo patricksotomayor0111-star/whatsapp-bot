@@ -49,7 +49,10 @@ const KEYWORDS_GLOBALES = [
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
   'tenemos pedido','box','un box','un motorizado','venir','pedidi',
-  'movilidad','movil','viniendo','moto','unidad'
+  'movilidad','movil','viniendo','moto','unidad',
+  'vengan','venga','delivery','confirmado','recoger',
+  'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
+  'ptb mega','pds a ptb','pds a mega','ptb a parcona'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -252,9 +255,7 @@ client.on('message', async (msg) => {
     hora
   });
   saveHistorial();
-
   enviarNotificacion(chat.name, hora);
-
   botActivo = false;
   saveConfig();
 });
