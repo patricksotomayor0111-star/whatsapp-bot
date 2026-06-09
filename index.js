@@ -55,8 +55,6 @@ const KEYWORDS_GLOBALES = [
   'ptb mega','pds a ptb','pds a mega','ptb a parcona'
 ];
 
-// ✅ Palabras que EXCLUYEN la respuesta aunque haya keyword
-// Si el mensaje contiene alguna de estas, NO se responde
 const KEYWORDS_EXCLUIR = [
   'cotizacion','cotización','precio','cuanto','cuánto',
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
@@ -275,7 +273,6 @@ client.on('message', async (msg) => {
   const esFotoGrupo = GRUPOS_FOTO.some(n => chat.name.toLowerCase().includes(n.toLowerCase()));
   const texto = msg.body || '';
 
-  // ✅ Si contiene palabras de exclusión, ignorar aunque haya keyword
   if (tieneExclusion(texto)) return;
 
   let tieneKeyword = KEYWORDS_GLOBALES.find(k => similarEnough(texto, k));
@@ -308,9 +305,7 @@ client.on('message', async (msg) => {
     hora
   });
   saveHistorial();
-
   enviarNotificacion(chat.name, hora);
-
   botActivo = false;
   saveConfig();
 });
@@ -512,4 +507,10 @@ app.post('/sector', (req, res) => {
 
 app.listen(3000, () => console.log('Servidor activo'));
 
-setInterval(async () =>
+setInterval(async () => {
+  try {
+    if (isReady) {
+      const state = await client.getState();
+      console.log('Estado WhatsApp:', state);
+      if (state !== 'CONNECTED') {
+        console.log('Reconectando..
