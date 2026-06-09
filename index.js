@@ -166,14 +166,17 @@ client.on('disconnected', (reason) => {
   qrCodeData = '';
   botActivo = false;
   saveConfig();
-  try {
-    const sessionPath = './.wwebjs_auth';
-    if (fs.existsSync(sessionPath)) {
-      fs.rmSync(sessionPath, { recursive: true, force: true });
-      console.log('Sesión borrada');
+  // ✅ Solo borra sesión si fue cierre manual desde WhatsApp
+  if (reason === 'LOGOUT') {
+    try {
+      const sessionPath = './.wwebjs_auth';
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+        console.log('Sesión borrada por logout manual');
+      }
+    } catch(e) {
+      console.error('Error borrando sesión:', e);
     }
-  } catch(e) {
-    console.error('Error borrando sesión:', e);
   }
   setTimeout(() => { process.exit(0); }, 1000);
 });
@@ -193,8 +196,7 @@ client.on('ready', async () => {
   });
   GRUPOS_CACHE.forEach(g => {
     const esInactivo = SIEMPRE_INACTIVOS.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
-    const esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
-    if (esInactivo || esSectorX) {
+    if (esInactivo) {
       GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(id => id !== g.id);
       return;
     }
@@ -357,8 +359,7 @@ app.get('/', (req, res) => {
       const esFotoGrupo = GRUPOS_FOTO.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
       const fotoTag = esFotoGrupo ? `<span style="font-size:10px;color:#3498db"> 📸</span>` : '';
       const esInactivo = SIEMPRE_INACTIVOS.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
-      const esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
-      const tagManual = (esInactivo || esSectorX) ? `<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>` : '';
+      const tagManual = esInactivo ? `<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>` : '';
       const opacidad = !sectorActivo ? 'opacity:0.45;' : '';
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;${opacidad}">
@@ -455,25 +456,4 @@ app.post('/sector', (req, res) => {
 });
 
 app.listen(3000, () => console.log('Servidor activo'));
-
-setInterval(async () => {
-  try {
-    if (isReady) {
-      const state = await client.getState();
-      console.log('Estado WhatsApp:', state);
-      if (state !== 'CONNECTED') {
-        console.log('Reconectando...');
-        isReady = false;
-        qrCodeData = '';
-        botActivo = false;
-        saveConfig();
-        process.exit(0);
-      }
-    }
-  } catch(e) {
-    console.log('Error ping:', e.message);
-    process.exit(0);
-  }
-}, 30 * 60 * 1000);
-
 client.initialize();
