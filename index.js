@@ -49,7 +49,20 @@ const KEYWORDS_GLOBALES = [
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
   'tenemos pedido','box','un box','un motorizado','venir','pedidi',
-  'movilidad','movil','viniendo','moto','unidad'
+  'movilidad','movil','viniendo','moto','unidad',
+  'vengan','venga','delivery','confirmado','recoger',
+  'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
+  'ptb mega','pds a ptb','pds a mega','ptb a parcona'
+];
+
+// ✅ Palabras que EXCLUYEN la respuesta aunque haya keyword
+// Si el mensaje contiene alguna de estas, NO se responde
+const KEYWORDS_EXCLUIR = [
+  'cotizacion','cotización','precio','cuanto','cuánto',
+  'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
+  'tarifa','tarifas','costo','cobran','cobras','cuanto cobran',
+  'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
+  'cuanto es el delivery','cuanto me sale'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -61,23 +74,53 @@ const SIEMPRE_INACTIVOS = [
 
 const SECTORES = {
   'Sector PTB': [
-    'CARTAS RESTAURANTES','LA BUMANGUESA BOX DELIVERY','MONKEY DONUTS BOX DELIVERY',
-    'PEÑONETTI BOX DELIVERY','SHAWABURGUER BOX DELIVERY','BRUCES BOX DELIVERY',
+    'CARTAS RESTAURANTES',
+    'LA BUMANGUESA BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY',
+    'Pizzería cardenatti box delivery',
+    'PEÑONETTI BOX DELIVERY',
+    'SHAWABURGUER BOX DELIVERY',
+    'BRUCES BOX DELIVERY',
     'PUNTO CALIENTE - BOX DELIVERY'
   ],
   'Sector San José': [
-    'Hola','THE CROWN BOX DELIVERY','HARVEST BOX DELIVERY','RICOS PROTEIN - BOX DELIVERY',
-    'AYABACA - BUMANGUESA II','MISKY POLLERIA (dribox)','KAM LONG PEDIDOS',
-    'BOCHITOS BOX DELIVERY','LAS NIEVES BOX DELIVERY'
+    'Hola',
+    'THE CROWN BOX DELIVERY',
+    'HARVEST BOX DELIVERY',
+    'RICOS PROTEIN - BOX DELIVERY',
+    'AYABACA - BUMANGUESA II',
+    'MISKY POLLERIA (dribox)',
+    'KAM LONG PEDIDOS',
+    'BOCHITOS BOX DELIVERY',
+    'LAS NIEVES BOX DELIVERY',
+    'HELADERÍA EL PINGÜINO',
+    'MR. SUSHI BOX DELIVERY'
   ],
   'Sector Moderna': [
-    'BUBATON BOX DELIVERY','CRAZY CORN 🌭🧋🤗','CHIFA LIU BOX DELIVERY',
-    'McGrill Restaurante BOX DELIVERY','REST CENTRO BOX DELIVERY','DELIVERY BOX / LAGUNILLA',
-    'MISTER JUGO BOX DELIVERY','ARTIA PASTELERIA (dribox)','CANTONES - BOX DELIVERY',
-    'Hugo Restaurante BOX DELIVERY','KANASTAS BOX DELIVERY','PIM PAM POLLO BOX DELIVERY'
+    'BUBATON BOX DELIVERY',
+    'CRAZY CORN 🌭🧋🤗',
+    'CHIFA LIU BOX DELIVERY',
+    'McGrill Restaurante BOX DELIVERY',
+    'REST CENTRO BOX DELIVERY',
+    'DELIVERY BOX / LAGUNILLA',
+    'MISTER JUGO BOX DELIVERY',
+    'ARTIA PASTELERIA (dribox)',
+    'CANTONES - BOX DELIVERY',
+    'Hugo Restaurante BOX DELIVERY',
+    'KANASTAS BOX DELIVERY',
+    'PIM PAM POLLO BOX DELIVERY',
+    'ONEST BOX DELIVERY',
+    'Rincón del sabor BOX DELIVERY',
+    'CHIFA CHANG KEE PEDIDOS',
+    'MIAS BOX DELIVERY',
+    'MONO ALITAS BOX DELIVERY',
+    'ROCA STEAK HOUSE BOX DELIVERY',
+    'PIO RICO BOX DELIVERY'
   ],
   'Sector La Angostura': [
-    'Boletas locales','Don Alejandro -BOX DELYBERY','EL BORGO BOX DELIVERY'
+    'Boletas locales',
+    'Don Alejandro -BOX DELYBERY',
+    'EL BORGO BOX DELIVERY'
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
@@ -89,21 +132,31 @@ const SECTORES = {
 
 const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
+function normalizar(texto) {
+  return texto.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9 ]/g,'');
+}
+
 function similarEnough(texto, keyword) {
-  texto = texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'');
-  keyword = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,'');
-  if (texto.includes(keyword)) return true;
-  const words = keyword.split(' ');
+  const t = normalizar(texto);
+  const k = normalizar(keyword);
+  if (t.includes(k)) return true;
+  const words = k.split(' ');
   return words.every(w => {
-    if (w.length <= 3) return texto.includes(w);
-    for (let i = 0; i <= texto.length - w.length + 1; i++) {
-      const sub = texto.substr(i, w.length + 1);
+    if (w.length <= 3) return t.includes(w);
+    for (let i = 0; i <= t.length - w.length + 1; i++) {
+      const sub = t.substr(i, w.length + 1);
       let diff = 0;
       for (let j = 0; j < w.length; j++) if (w[j] !== (sub[j]||'')) diff++;
       if (diff <= 1) return true;
     }
     return false;
   });
+}
+
+function tieneExclusion(texto) {
+  return KEYWORDS_EXCLUIR.some(k => normalizar(texto).includes(normalizar(k)));
 }
 
 function loadConfig() {
@@ -221,6 +274,9 @@ client.on('message', async (msg) => {
   const esFoto = msg.hasMedia && msg.type === 'image';
   const esFotoGrupo = GRUPOS_FOTO.some(n => chat.name.toLowerCase().includes(n.toLowerCase()));
   const texto = msg.body || '';
+
+  // ✅ Si contiene palabras de exclusión, ignorar aunque haya keyword
+  if (tieneExclusion(texto)) return;
 
   let tieneKeyword = KEYWORDS_GLOBALES.find(k => similarEnough(texto, k));
   if (!tieneKeyword) {
@@ -456,24 +512,4 @@ app.post('/sector', (req, res) => {
 
 app.listen(3000, () => console.log('Servidor activo'));
 
-setInterval(async () => {
-  try {
-    if (isReady) {
-      const state = await client.getState();
-      console.log('Estado WhatsApp:', state);
-      if (state !== 'CONNECTED') {
-        console.log('Reconectando...');
-        isReady = false;
-        qrCodeData = '';
-        botActivo = false;
-        saveConfig();
-        process.exit(0);
-      }
-    }
-  } catch(e) {
-    console.log('Error ping:', e.message);
-    process.exit(0);
-  }
-}, 30 * 60 * 1000);
-
-client.initialize();
+setInterval(async () =>
