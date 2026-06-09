@@ -7,7 +7,6 @@ const app = express();
 app.use(express.json());
 
 const CONFIG_FILE = '/tmp/config.json';
-const HISTORIAL_FILE = '/tmp/historial.json';
 
 const NUMEROS_IGNORADOS = [
   '51942535017','942535017','51942 535 017','942 535 017',
@@ -120,25 +119,11 @@ function saveConfig() {
   }));
 }
 
-function loadHistorial() {
-  try {
-    if (fs.existsSync(HISTORIAL_FILE)) return JSON.parse(fs.readFileSync(HISTORIAL_FILE));
-  } catch(e) {}
-  return [];
-}
-
-function saveHistorial() {
-  // Guardar máximo 200 entradas
-  if (HISTORIAL.length > 200) HISTORIAL.splice(0, HISTORIAL.length - 200);
-  fs.writeFileSync(HISTORIAL_FILE, JSON.stringify(HISTORIAL));
-}
-
 let cfg = loadConfig();
 let botActivo = false;
 let GRUPOS_ACTIVOS = cfg.gruposActivos;
 let GRUPOS_CACHE = cfg.gruposCache || [];
 let SECTORES_APAGADOS = cfg.sectoresApagados || [];
-let HISTORIAL = loadHistorial();
 let qrCodeData = '';
 let isReady = false;
 const lastReply = {};
@@ -167,16 +152,6 @@ client.on('disconnected', (reason) => {
   qrCodeData = '';
   botActivo = false;
   saveConfig();
-  // ✅ Borrar sesión para que genere QR nuevo
-  try {
-    const sessionPath = './.wwebjs_auth';
-    if (fs.existsSync(sessionPath)) {
-      fs.rmSync(sessionPath, { recursive: true, force: true });
-      console.log('Sesión borrada');
-    }
-  } catch(e) {
-    console.error('Error borrando sesión:', e);
-  }
   setTimeout(() => { process.exit(0); }, 1000);
 });
 
@@ -209,12 +184,7 @@ client.on('message', async (msg) => {
   if (!botActivo) return;
   const chat = await msg.getChat();
   if (!chat.isGroup) return;
-
-  const chatId = chat.id._serialized;
-  if (!GRUPOS_ACTIVOS.includes(chatId)) return;
-
-  const sectorDelGrupo = getSectorDeGrupo(chat.name);
-  if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
+  if (!GRUPOS_ACTIVOS.includes(chat.id._serialized)) return;
 
   const numero = msg.author ? msg.author.replace('@c.us','') : msg.from.replace('@c.us','');
   if (NUMEROS_IGNORADOS.includes(numero)) return;
@@ -236,25 +206,12 @@ client.on('message', async (msg) => {
   if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
 
   const ahora = Date.now();
-  const key = chatId;
+  const key = chat.id._serialized;
   if (lastReply[key] && ahora - lastReply[key] < COOLDOWN) return;
   lastReply[key] = ahora;
   await msg.reply(AUTO_REPLY);
 
-  const now = new Date();
-  const fecha = now.toLocaleDateString('es-PE');
-  const hora = now.toLocaleTimeString('es-PE');
-
-  // ✅ Guardar en historial
-  HISTORIAL.unshift({
-    grupo: chat.name,
-    sector: sectorDelGrupo,
-    mensaje: esFoto ? '📸 Foto' : texto.substring(0, 80),
-    fecha,
-    hora
-  });
-  saveHistorial();
-
+  const hora = new Date().toLocaleTimeString('es-PE');
   enviarNotificacion(chat.name, hora);
 
   botActivo = false;
@@ -276,55 +233,6 @@ app.get('/eventos', (req, res) => {
   res.flushHeaders();
   sseClients.push(res);
   req.on('close', () => { sseClients = sseClients.filter(c => c !== res); });
-});
-
-// ✅ Página de historial
-app.get('/historial', (req, res) => {
-  const filas = HISTORIAL.length === 0
-    ? `<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Sin registros aún</td></tr>`
-    : HISTORIAL.map((h, i) => `
-        <tr style="background:${i%2===0?'#fff':'#f9f9f9'}">
-          <td style="padding:10px 8px;font-size:13px">${h.fecha} ${h.hora}</td>
-          <td style="padding:10px 8px;font-size:13px;font-weight:500">${h.grupo}</td>
-          <td style="padding:10px 8px;font-size:12px;color:#666">${h.sector}</td>
-          <td style="padding:10px 8px;font-size:12px;color:#888;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.mensaje}</td>
-        </tr>`).join('');
-
-  res.send(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Historial - WhatsApp Bot</title>
-  </head>
-  <body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-      <a href="/" style="text-decoration:none;font-size:22px">←</a>
-      <h2 style="margin:0">📋 Historial de respuestas</h2>
-    </div>
-    <p style="color:#888;font-size:13px;margin-bottom:16px">Total: <b>${HISTORIAL.length}</b> respuestas automáticas</p>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:10px;overflow:hidden">
-        <thead>
-          <tr style="background:#25D366;color:white">
-            <th style="padding:10px 8px;text-align:left;font-size:13px">Fecha / Hora</th>
-            <th style="padding:10px 8px;text-align:left;font-size:13px">Grupo</th>
-            <th style="padding:10px 8px;text-align:left;font-size:13px">Sector</th>
-            <th style="padding:10px 8px;text-align:left;font-size:13px">Mensaje</th>
-          </tr>
-        </thead>
-        <tbody>${filas}</tbody>
-      </table>
-    </div>
-    <button onclick="if(confirm('¿Borrar todo el historial?')){fetch('/historial',{method:'DELETE'}).then(()=>location.reload())}"
-      style="margin-top:20px;padding:10px 20px;border-radius:10px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:14px">
-      🗑️ Borrar historial
-    </button>
-  </body></html>`);
-});
-
-app.delete('/historial', (req, res) => {
-  HISTORIAL = [];
-  saveHistorial();
-  res.json({ ok: true });
 });
 
 app.get('/', (req, res) => {
@@ -351,7 +259,7 @@ app.get('/', (req, res) => {
   let sectoresHtml = '';
   for (const [sector, grupos] of Object.entries(porSector)) {
     if (grupos.length === 0) continue;
-    const sectorActivo = !SECTORES_APAGADOS.includes(sector);
+    const todoActivo = grupos.every(g => GRUPOS_ACTIVOS.includes(g.id));
     const gruposDelSector = grupos.map(g => {
       const activo = GRUPOS_ACTIVOS.includes(g.id);
       const ahora = Date.now();
@@ -361,9 +269,8 @@ app.get('/', (req, res) => {
       const fotoTag = esFotoGrupo ? `<span style="font-size:10px;color:#3498db"> 📸</span>` : '';
       const esInactivo = SIEMPRE_INACTIVOS.some(n => g.name.toLowerCase().includes(n.toLowerCase()));
       const tagManual = esInactivo ? `<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>` : '';
-      const opacidad = !sectorActivo ? 'opacity:0.45;' : '';
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;${opacidad}">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0">
           <span style="font-size:13px;color:#444">${g.name}${fotoTag}${tagManual}${cooldownInfo}</span>
           <button onclick="toggleGrupo('${g.id}')" style="padding:5px 14px;border-radius:20px;border:none;background:${activo?'#25D366':'#ccc'};color:white;cursor:pointer;font-size:12px">
             ${activo?'Activo':'Inactivo'}
@@ -372,11 +279,11 @@ app.get('/', (req, res) => {
     }).join('');
 
     sectoresHtml += `
-      <div style="margin-bottom:16px;border:2px solid ${sectorActivo?'#e0e0e0':'#e74c3c'};border-radius:12px;overflow:hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:${sectorActivo?'#f7f7f7':'#fdecea'}">
+      <div style="margin-bottom:16px;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f7f7f7">
           <span style="font-weight:600;font-size:15px">📍 ${sector}</span>
-          <button onclick="toggleSector('${sector}')" style="padding:6px 16px;border-radius:20px;border:none;background:${sectorActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:13px">
-            ${sectorActivo?'Sector ON ✅':'Sector OFF ⛔'}
+          <button onclick="toggleSector('${sector}')" style="padding:6px 16px;border-radius:20px;border:none;background:${todoActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:13px">
+            ${todoActivo?'Desactivar sector':'Activar sector'}
           </button>
         </div>
         ${gruposDelSector}
@@ -389,19 +296,7 @@ app.get('/', (req, res) => {
     <title>WhatsApp Bot</title>
   </head>
   <body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
-
-    <!-- ✅ Menú hamburguesa -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h2 style="margin:0">🤖 WhatsApp Bot</h2>
-      <button onclick="document.getElementById('menu').classList.toggle('hidden')"
-        style="background:none;border:none;font-size:26px;cursor:pointer">☰</button>
-    </div>
-    <div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">
-      <a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">
-        📋 Historial de respuestas <span style="color:#888;font-size:12px">(${HISTORIAL.length})</span>
-      </a>
-    </div>
-
+    <h2>🤖 WhatsApp Bot</h2>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:${botActivo?'#e8f5e9':'#fdecea'};border-radius:10px;margin-bottom:16px">
       <span style="font-weight:bold;font-size:16px">Bot ${botActivo?'✅ Activo':'⛔ Inactivo'}</span>
       <button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:${botActivo?'#25D366':'#e74c3c'};color:white;cursor:pointer;font-size:15px">
@@ -412,10 +307,6 @@ app.get('/', (req, res) => {
     <p style="color:#888;font-size:11px">📸 = fotos | ⚠️ manual = solo activación manual | Sector OFF = bloquea todo el sector</p>
     <h3>Grupos (${GRUPOS_CACHE.length})</h3>
     ${sectoresHtml}
-
-    <style>
-      .hidden { display: none !important; }
-    </style>
     <script>
       const evtSource = new EventSource('/eventos');
       evtSource.onmessage = (e) => {
@@ -453,14 +344,37 @@ app.post('/grupo', (req, res) => {
 
 app.post('/sector', (req, res) => {
   const {sector} = req.body;
-  if (SECTORES_APAGADOS.includes(sector)) {
-    SECTORES_APAGADOS = SECTORES_APAGADOS.filter(s => s !== sector);
+  const gruposDelSector = GRUPOS_CACHE.filter(g => getSectorDeGrupo(g.name) === sector);
+  const todosActivos = gruposDelSector.every(g => GRUPOS_ACTIVOS.includes(g.id));
+  if (todosActivos) {
+    gruposDelSector.forEach(g => { GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(id => id !== g.id); });
   } else {
-    SECTORES_APAGADOS.push(sector);
+    gruposDelSector.forEach(g => { if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id); });
   }
   saveConfig();
-  res.json({sectoresApagados: SECTORES_APAGADOS});
+  res.json({grupos: GRUPOS_ACTIVOS});
 });
 
 app.listen(3000, () => console.log('Servidor activo'));
+
+setInterval(async () => {
+  try {
+    if (isReady) {
+      const state = await client.getState();
+      console.log('Estado WhatsApp:', state);
+      if (state !== 'CONNECTED') {
+        console.log('Reconectando...');
+        isReady = false;
+        qrCodeData = '';
+        botActivo = false;
+        saveConfig();
+        process.exit(0);
+      }
+    }
+  } catch(e) {
+    console.log('Error ping:', e.message);
+    process.exit(0);
+  }
+}, 30 * 60 * 1000);
+
 client.initialize();
