@@ -282,11 +282,11 @@ client.on('ready', async function() {
 
 client.on('message', async function(msg) {
   if (!botActivo) return;
-  if (msg.type === 'location') return;
-  if (msg.type === 'sticker') return;
-  if (msg.type === 'audio') return;
-  if (msg.type === 'video') return;
-  if (msg.type === 'document') return;
+
+  // Solo procesar mensajes de texto o imágenes — bloquea location, sticker, audio, video, document, etc.
+  var esFoto = msg.hasMedia && msg.type === 'image';
+  var esTexto = msg.type === 'chat';
+  if (!esTexto && !esFoto) return;
 
   var chat = await msg.getChat();
   if (!chat.isGroup) return;
@@ -300,7 +300,6 @@ client.on('message', async function(msg) {
   var numero = msg.author ? msg.author.replace('@c.us', '') : msg.from.replace('@c.us', '');
   if (NUMEROS_IGNORADOS.includes(numero)) return;
 
-  var esFoto = msg.hasMedia && msg.type === 'image';
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) {
     return chat.name.toLowerCase().includes(n.toLowerCase());
   });
