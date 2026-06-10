@@ -75,10 +75,13 @@ const SECTORES = {
     'CARTAS RESTAURANTES',
     'LA BUMANGUESA BOX DELIVERY',
     'MONKEY DONUTS BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY ',
     'Pizzería cardenatti box delivery',
+    'Pizzería cardenatti box delivery ',
     'PEÑONETTI BOX DELIVERY',
     'SHAWABURGUER BOX DELIVERY',
     'BRUCES BOX DELIVERY',
+    'BRUCES BOX DELIVERY ',
     'PUNTO CALIENTE - BOX DELIVERY'
   ],
   'Sector San José': [
@@ -100,25 +103,34 @@ const SECTORES = {
     'CHIFA LIU BOX DELIVERY',
     'McGrill Restaurante BOX DELIVERY',
     'REST CENTRO BOX DELIVERY',
+    'REST CENTRO BOX DELIVERY ',
     'DELIVERY BOX / LAGUNILLA',
     'MISTER JUGO BOX DELIVERY',
+    'MISTER JUGO BOX DELIVERY ',
     'ARTIA PASTELERIA (dribox)',
     'CANTONES - BOX DELIVERY',
     'Hugo Restaurante BOX DELIVERY',
+    'Hugo Restaurante BOX DELIVERY ',
     'KANASTAS BOX DELIVERY',
+    'KANASTAS BOX DELIVERY ',
     'PIM PAM POLLO BOX DELIVERY',
     'ONEST BOX DELIVERY',
+    'ONEST BOX DELIVERY ',
     'Rincón del sabor BOX DELIVERY',
     'CHIFA CHANG KEE PEDIDOS',
     'MIAS BOX DELIVERY',
     'MONO ALITAS BOX DELIVERY',
     'ROCA STEAK HOUSE BOX DELIVERY',
-    'PIO RICO BOX DELIVERY'
+    'PIO RICO BOX DELIVERY',
+    'PIO RICO BOX DELIVERY ',
+    'PUERTO RICO BOX DELIVERY',
+    'PUERTO RICO BOX DELIVERY '
   ],
   'Sector La Angostura': [
     'Boletas locales',
     'Don Alejandro -BOX DELYBERY',
-    'EL BORGO BOX DELIVERY'
+    'EL BORGO BOX DELIVERY',
+    'OCTAVIA LA ANGOSTURA - BOX DELIVERY'
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
@@ -169,7 +181,7 @@ function getSectorDeGrupo(nombreGrupo) {
     if (sector === 'Sector X (otros)') continue;
     var grupos = SECTORES[sector];
     for (var j = 0; j < grupos.length; j++) {
-      if (grupos[j].toLowerCase() === nombreGrupo.toLowerCase()) return sector;
+      if (grupos[j].trim().toLowerCase() === nombreGrupo.trim().toLowerCase()) return sector;
     }
   }
   return 'Sector X (otros)';
@@ -258,8 +270,8 @@ client.on('ready', async function() {
   var grupos = chats.filter(function(c) { return c.isGroup; });
   GRUPOS_CACHE = grupos.map(function(g) { return { id: g.id._serialized, name: g.name }; });
   GRUPOS_CACHE.sort(function(a, b) {
-    var ia = ORDEN_GRUPOS.indexOf(a.name);
-    var ib = ORDEN_GRUPOS.indexOf(b.name);
+    var ia = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === a.name.trim().toLowerCase(); });
+    var ib = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === b.name.trim().toLowerCase(); });
     if (ia === -1 && ib === -1) return 0;
     if (ia === -1) return 1;
     if (ib === -1) return -1;
@@ -283,7 +295,7 @@ client.on('ready', async function() {
 client.on('message', async function(msg) {
   if (!botActivo) return;
 
-  // Solo procesar mensajes de texto o imágenes — bloquea location, sticker, audio, video, document, etc.
+  // Solo procesar mensajes de texto o imagenes — bloquea location, sticker, audio, video, document, etc.
   var esFoto = msg.hasMedia && msg.type === 'image';
   var esTexto = msg.type === 'chat';
   if (!esTexto && !esFoto) return;
@@ -512,7 +524,7 @@ app.post('/sector', function(req, res) {
   res.json({ sectoresApagados: SECTORES_APAGADOS });
 });
 
-// Endpoint temporal para ver nombres exactos de grupos
+// Endpoint para ver nombres exactos de grupos
 app.get('/grupos-raw', function(req, res) {
   var lista = GRUPOS_CACHE.map(function(g) {
     return g.name + '  →  sector: ' + getSectorDeGrupo(g.name);
