@@ -512,6 +512,15 @@ app.post('/sector', function(req, res) {
   res.json({ sectoresApagados: SECTORES_APAGADOS });
 });
 
+// Endpoint temporal para ver nombres exactos de grupos
+app.get('/grupos-raw', function(req, res) {
+  var lista = GRUPOS_CACHE.map(function(g) {
+    return g.name + '  →  sector: ' + getSectorDeGrupo(g.name);
+  }).join('\n');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send('TOTAL: ' + GRUPOS_CACHE.length + ' grupos\n\n' + lista);
+});
+
 app.listen(3000, function() { console.log('Servidor activo'); });
 
 setInterval(async function() {
