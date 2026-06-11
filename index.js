@@ -53,7 +53,7 @@ const KEYWORDS_GLOBALES = [
   'vengan','venga','delivery','confirmado','recoger',
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
-  'se acerca al local','se acerca al local en estos momentos','acercandose al local'
+  'se acerca al local','acercandose al local'
 ];
 
 const KEYWORDS_EXCLUIR = [
@@ -63,7 +63,13 @@ const KEYWORDS_EXCLUIR = [
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
   'cuanto es el delivery','cuanto me sale',
   'confirmo en unos minutos','confirmamos en unos minutos',
-  'confirmo en un momento','confirmo en breve'
+  'confirmo en un momento','confirmo en breve',
+  'en 20 minutos','en 25 minutos','en 30 minutos','en 40 minutos',
+  'en 45 minutos','en 60 minutos','en 1 hora',
+  '20 minutos','25 minutos','30 minutos','40 minutos','45 minutos',
+  'pedido en 20','pedido en 25','pedido en 30',
+  'listo en 20','listo en 25','listo en 30',
+  'listo en 40','listo en 45','listo en 60'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -104,13 +110,19 @@ const SECTORES = {
     'McGrill Restaurante BOX DELIVERY',
     'REST CENTRO BOX DELIVERY',
     'REST CENTRO BOX DELIVERY ',
+    'MISTER JUGO BOX DELIVERY',
+    'MISTER JUGO BOX DELIVERY ',
+    'CANTONES - BOX DELIVERY',
+    'KANASTAS BOX DELIVERY',
+    'KANASTAS BOX DELIVERY ',
     'PIM PAM POLLO BOX DELIVERY',
     'Rincón del sabor BOX DELIVERY',
     'CHIFA CHANG KEE PEDIDOS',
     'MONO ALITAS BOX DELIVERY',
-    'ROCA STEAK HOUSE BOX DELIVERY',
     'PUERTO RICO BOX DELIVERY',
-    'PUERTO RICO BOX DELIVERY '
+    'PUERTO RICO BOX DELIVERY ',
+    'PIO RICO BOX DELIVERY',
+    'PIO RICO BOX DELIVERY '
   ],
   'Sector La Angostura': [
     'Boletas locales',
@@ -131,11 +143,10 @@ const SECTORES = {
     'Hugo Restaurante BOX DELIVERY ',
     'Palacio Oriental BOX DELIVERY',
     'PUNTO CALIENTE - BOX DELIVERY',
-    'MONKEY DONUTS BOX DELIVERY',
-    'MONKEY DONUTS BOX DELIVERY ',
     'PAPEADO SAN ISIDRO BOX DELIVERY',
     'SMART NUTRITION BOX DELIVERY',
-    'DELIVERY BIEN PESCAO 🏍️'
+    'DELIVERY BIEN PESCAO 🏍️',
+    'ROCA STEAK HOUSE BOX DELIVERY'
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
@@ -246,7 +257,10 @@ function enviarNotificacion(grupo, hora) {
 
 var client = new Client({
   authStrategy: new LocalAuth(),
-  puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+  puppeteer: {
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    protocolTimeout: 18000000
+  }
 });
 
 client.on('qr', function(qr) { qrCodeData = qr; });
@@ -299,8 +313,6 @@ client.on('ready', async function() {
 
 client.on('message', async function(msg) {
   if (!botActivo) return;
-
-  // Solo procesar mensajes de texto o imagenes — bloquea location, sticker, audio, video, document, etc.
   var esFoto = msg.hasMedia && msg.type === 'image';
   var esTexto = msg.type === 'chat';
   if (!esTexto && !esFoto) return;
@@ -386,7 +398,7 @@ app.get('/historial', function(req, res) {
   res.send('<!DOCTYPE html><html><head>' +
     '<meta charset="UTF-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<title>Historial - WhatsApp Bot</title>' +
+    '<title>Historial</title>' +
     '</head><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">' +
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">' +
     '<a href="/" style="text-decoration:none;font-size:22px">←</a>' +
@@ -409,6 +421,14 @@ app.delete('/historial', function(req, res) {
   HISTORIAL = [];
   saveHistorial();
   res.json({ ok: true });
+});
+
+app.get('/grupos-raw', function(req, res) {
+  var lista = GRUPOS_CACHE.map(function(g) {
+    return g.name + '  →  sector: ' + getSectorDeGrupo(g.name);
+  }).join('\n');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send('TOTAL: ' + GRUPOS_CACHE.length + ' grupos\n\n' + lista);
 });
 
 app.get('/', function(req, res) {
@@ -471,7 +491,9 @@ app.get('/', function(req, res) {
     '<button onclick="document.getElementById(\'menu\').classList.toggle(\'hidden\')" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>' +
     '<div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">' +
     '<a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">' +
-    '📋 Historial de respuestas <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a></div>' +
+    '📋 Historial de respuestas <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a>' +
+    '<a href="/grupos-raw" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white">' +
+    '🔍 Ver nombres exactos de grupos</a></div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:' + (botActivo?'#e8f5e9':'#fdecea') + ';border-radius:10px;margin-bottom:16px">' +
     '<span style="font-weight:bold;font-size:16px">Bot ' + (botActivo?'✅ Activo':'⛔ Inactivo') + '</span>' +
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' +
@@ -527,15 +549,6 @@ app.post('/sector', function(req, res) {
   }
   saveConfig();
   res.json({ sectoresApagados: SECTORES_APAGADOS });
-});
-
-// Endpoint para ver nombres exactos de grupos
-app.get('/grupos-raw', function(req, res) {
-  var lista = GRUPOS_CACHE.map(function(g) {
-    return g.name + '  →  sector: ' + getSectorDeGrupo(g.name);
-  }).join('\n');
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.send('TOTAL: ' + GRUPOS_CACHE.length + ' grupos\n\n' + lista);
 });
 
 app.listen(3000, function() { console.log('Servidor activo'); });
