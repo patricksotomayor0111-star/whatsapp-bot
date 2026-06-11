@@ -52,7 +52,8 @@ const KEYWORDS_GLOBALES = [
   'movilidad','movil','viniendo','moto','unidad',
   'vengan','venga','delivery','confirmado','recoger',
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
-  'ptb mega','pds a ptb','pds a mega','ptb a parcona'
+  'ptb mega','pds a ptb','pds a mega','ptb a parcona',
+  'se acerca al local','se acerca al local en estos momentos','acercandose al local'
 ];
 
 const KEYWORDS_EXCLUIR = [
@@ -60,7 +61,9 @@ const KEYWORDS_EXCLUIR = [
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
   'tarifa','tarifas','costo','cobran','cobras','cuanto cobran',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
-  'cuanto es el delivery','cuanto me sale'
+  'cuanto es el delivery','cuanto me sale',
+  'confirmo en unos minutos','confirmamos en unos minutos',
+  'confirmo en un momento','confirmo en breve'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -76,13 +79,10 @@ const SECTORES = {
     'LA BUMANGUESA BOX DELIVERY',
     'MONKEY DONUTS BOX DELIVERY',
     'MONKEY DONUTS BOX DELIVERY ',
-    'Pizzería cardenatti box delivery',
-    'Pizzería cardenatti box delivery ',
     'PEÑONETTI BOX DELIVERY',
     'SHAWABURGUER BOX DELIVERY',
     'BRUCES BOX DELIVERY',
-    'BRUCES BOX DELIVERY ',
-    'PUNTO CALIENTE - BOX DELIVERY'
+    'BRUCES BOX DELIVERY '
   ],
   'Sector San José': [
     'Hola',
@@ -104,25 +104,11 @@ const SECTORES = {
     'McGrill Restaurante BOX DELIVERY',
     'REST CENTRO BOX DELIVERY',
     'REST CENTRO BOX DELIVERY ',
-    'DELIVERY BOX / LAGUNILLA',
-    'MISTER JUGO BOX DELIVERY',
-    'MISTER JUGO BOX DELIVERY ',
-    'ARTIA PASTELERIA (dribox)',
-    'CANTONES - BOX DELIVERY',
-    'Hugo Restaurante BOX DELIVERY',
-    'Hugo Restaurante BOX DELIVERY ',
-    'KANASTAS BOX DELIVERY',
-    'KANASTAS BOX DELIVERY ',
     'PIM PAM POLLO BOX DELIVERY',
-    'ONEST BOX DELIVERY',
-    'ONEST BOX DELIVERY ',
     'Rincón del sabor BOX DELIVERY',
     'CHIFA CHANG KEE PEDIDOS',
-    'MIAS BOX DELIVERY',
     'MONO ALITAS BOX DELIVERY',
     'ROCA STEAK HOUSE BOX DELIVERY',
-    'PIO RICO BOX DELIVERY',
-    'PIO RICO BOX DELIVERY ',
     'PUERTO RICO BOX DELIVERY',
     'PUERTO RICO BOX DELIVERY '
   ],
@@ -131,6 +117,25 @@ const SECTORES = {
     'Don Alejandro -BOX DELYBERY',
     'EL BORGO BOX DELIVERY',
     'OCTAVIA LA ANGOSTURA - BOX DELIVERY'
+  ],
+  'Sector Comodin': [
+    'DELIVERY BOX / LAGUNILLA',
+    'ARTIA PASTELERIA (dribox)',
+    'PEPEFOD DELIVERY',
+    'Pizzería cardenatti box delivery',
+    'Pizzería cardenatti box delivery ',
+    'MIAS BOX DELIVERY',
+    'ONEST BOX DELIVERY',
+    'ONEST BOX DELIVERY ',
+    'Hugo Restaurante BOX DELIVERY',
+    'Hugo Restaurante BOX DELIVERY ',
+    'Palacio Oriental BOX DELIVERY',
+    'PUNTO CALIENTE - BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY ',
+    'PAPEADO SAN ISIDRO BOX DELIVERY',
+    'SMART NUTRITION BOX DELIVERY',
+    'DELIVERY BIEN PESCAO 🏍️'
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
