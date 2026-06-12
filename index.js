@@ -466,34 +466,6 @@ client.on('message', async function(msg) {
   saveConfig();
 });
 
-// ── Captura tus propios mensajes en el grupo GANANCIAS ──
-client.on('message_create', async function(msg) {
-  if (!msg.fromMe) return;
-  if (!isReady) return;
-
-  var chat = await msg.getChat();
-  if (!chat.isGroup) return;
-  if (!esGrupoGanancias(chat.name)) return;
-
-  var texto = msg.body || '';
-  var montos = extraerMontos(texto);
-  if (montos !== null) {
-    var ganData = loadGanancias();
-    var hoy = new Date().toLocaleDateString('es-PE');
-    if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
-    ganData.ganancias = Math.round((ganData.ganancias + montos.ganancias) * 100) / 100;
-    ganData.gastos = Math.round((ganData.gastos + montos.gastos) * 100) / 100;
-    saveGanancias(ganData);
-    var totalLiquido = Math.round((ganData.ganancias - ganData.gastos) * 100) / 100;
-    var emojiLiquido = totalLiquido >= 0 ? '🤑' : '😬';
-    var respuesta =
-      '✅ GANANCIAS: Total hoy: ' + ganData.ganancias + ' soles\n' +
-      '📉 GASTOS: Total hoy: -' + ganData.gastos + ' soles\n' +
-      'TOTAL LIQUIDO ' + emojiLiquido + ': ' + totalLiquido + ' soles';
-    await msg.reply(respuesta);
-  }
-});
-
 app.get('/eventos', function(req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
