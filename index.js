@@ -53,7 +53,7 @@ const KEYWORDS_GLOBALES = [
   'vengan','venga','delivery','confirmado','recoger',
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
-  'se acerca al local','acercandose al local'
+  'se acerca al local','se acerca al local en estos momentos','acercandose al local'
 ];
 
 const KEYWORDS_EXCLUIR = [
@@ -64,12 +64,18 @@ const KEYWORDS_EXCLUIR = [
   'cuanto es el delivery','cuanto me sale',
   'confirmo en unos minutos','confirmamos en unos minutos',
   'confirmo en un momento','confirmo en breve',
-  'en 20 minutos','en 25 minutos','en 30 minutos','en 40 minutos',
-  'en 45 minutos','en 60 minutos','en 1 hora',
-  '20 minutos','25 minutos','30 minutos','40 minutos','45 minutos',
-  'pedido en 20','pedido en 25','pedido en 30',
-  'listo en 20','listo en 25','listo en 30',
-  'listo en 40','listo en 45','listo en 60'
+  'en 16 minutos','en 17 minutos','en 18 minutos','en 19 minutos',
+  'en 20 minutos','en 21 minutos','en 22 minutos','en 23 minutos',
+  'en 24 minutos','en 25 minutos','en 26 minutos','en 27 minutos',
+  'en 28 minutos','en 29 minutos','en 30 minutos','en 35 minutos',
+  'en 40 minutos','en 45 minutos','en 50 minutos','en 60 minutos',
+  '16 min','17 min','18 min','19 min','20 min','21 min','22 min',
+  '23 min','24 min','25 min','26 min','27 min','28 min','29 min',
+  '30 min','35 min','40 min','45 min','50 min','60 min',
+  '16min','17min','18min','19min','20min','21min','22min',
+  '23min','24min','25min','26min','27min','28min','29min',
+  '30min','35min','40min','45min','50min','60min',
+  'media hora','1 hora','una hora'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -143,6 +149,8 @@ const SECTORES = {
     'Hugo Restaurante BOX DELIVERY ',
     'Palacio Oriental BOX DELIVERY',
     'PUNTO CALIENTE - BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY ',
     'PAPEADO SAN ISIDRO BOX DELIVERY',
     'SMART NUTRITION BOX DELIVERY',
     'DELIVERY BIEN PESCAO 🏍️',
@@ -257,10 +265,7 @@ function enviarNotificacion(grupo, hora) {
 
 var client = new Client({
   authStrategy: new LocalAuth(),
-  puppeteer: {
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    protocolTimeout: 18000000
-  }
+  puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
 });
 
 client.on('qr', function(qr) { qrCodeData = qr; });
@@ -398,7 +403,7 @@ app.get('/historial', function(req, res) {
   res.send('<!DOCTYPE html><html><head>' +
     '<meta charset="UTF-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<title>Historial</title>' +
+    '<title>Historial - WhatsApp Bot</title>' +
     '</head><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">' +
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">' +
     '<a href="/" style="text-decoration:none;font-size:22px">←</a>' +
@@ -421,14 +426,6 @@ app.delete('/historial', function(req, res) {
   HISTORIAL = [];
   saveHistorial();
   res.json({ ok: true });
-});
-
-app.get('/grupos-raw', function(req, res) {
-  var lista = GRUPOS_CACHE.map(function(g) {
-    return g.name + '  →  sector: ' + getSectorDeGrupo(g.name);
-  }).join('\n');
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.send('TOTAL: ' + GRUPOS_CACHE.length + ' grupos\n\n' + lista);
 });
 
 app.get('/', function(req, res) {
@@ -491,9 +488,7 @@ app.get('/', function(req, res) {
     '<button onclick="document.getElementById(\'menu\').classList.toggle(\'hidden\')" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>' +
     '<div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">' +
     '<a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">' +
-    '📋 Historial de respuestas <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a>' +
-    '<a href="/grupos-raw" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white">' +
-    '🔍 Ver nombres exactos de grupos</a></div>' +
+    '📋 Historial de respuestas <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a></div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:' + (botActivo?'#e8f5e9':'#fdecea') + ';border-radius:10px;margin-bottom:16px">' +
     '<span style="font-weight:bold;font-size:16px">Bot ' + (botActivo?'✅ Activo':'⛔ Inactivo') + '</span>' +
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' +
@@ -549,6 +544,14 @@ app.post('/sector', function(req, res) {
   }
   saveConfig();
   res.json({ sectoresApagados: SECTORES_APAGADOS });
+});
+
+app.get('/grupos-raw', function(req, res) {
+  var lista = GRUPOS_CACHE.map(function(g) {
+    return g.name + '  →  sector: ' + getSectorDeGrupo(g.name);
+  }).join('\n');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send('TOTAL: ' + GRUPOS_CACHE.length + ' grupos\n\n' + lista);
 });
 
 app.listen(3000, function() { console.log('Servidor activo'); });
