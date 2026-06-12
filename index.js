@@ -31,7 +31,28 @@ const NUMEROS_IGNORADOS = [
   '51914352139','914352139','51914 352 139','914 352 139',
   '51936899473','936899473','51936 899 473','936 899 473',
   '51956856787','956856787','51956 856 787','956 856 787',
-  '51910795590','910795590','51910 795 590','910 795 590'
+  '51910795590','910795590','51910 795 590','910 795 590',
+  // Nuevos numeros ignorados
+  '51934572456','934572456','51934 572 456','934 572 456',
+  '51972077603','972077603','51972 077 603','972 077 603',
+  '51972066872','972066872','51972 066 872','972 066 872',
+  '51950006969','950006969','51950 006 969','950 006 969',
+  '51957511240','957511240','51957 511 240','957 511 240',
+  '51997186215','997186215','51997 186 215','997 186 215',
+  '51966124285','966124285','51966 124 285','966 124 285',
+  '51912699997','912699997','51912 699 997','912 699 997',
+  '51924917366','924917366','51924 917 366','924 917 366',
+  '51963936600','963936600','51963 936 600','963 936 600',
+  '51976481032','976481032','51976 481 032','976 481 032',
+  '51907413081','907413081','51907 413 081','907 413 081',
+  '923938101','51923938101','923 938 101','51923 938 101',
+  '51979397948','979397948','51979 397 948','979 397 948',
+  '51955214645','955214645','51955 214 645','955 214 645',
+  '51955794995','955794995','51955 794 995','955 794 995',
+  '51932736288','932736288','51932 736 288','932 736 288',
+  '51902425988','902425988','51902 425 988','902 425 988',
+  '51973155047','973155047','51973 155 047','973 155 047',
+  '34641095746','34641 09 57 46','34 641 09 57 46'
 ];
 
 const GRUPOS_FOTO = [
@@ -41,7 +62,9 @@ const GRUPOS_FOTO = [
 ];
 
 const KEYWORDS_ESPECIALES = {
-  'AYABACA - BUMANGUESA II': ['listo']
+  'AYABACA - BUMANGUESA II': ['listo'],
+  'BUBATON BOX DELIVERY': ['ingrese'],
+  'CARTAS RESTAURANTES': ['ingrese']
 };
 
 const KEYWORDS_GLOBALES = [
@@ -76,7 +99,6 @@ const SIEMPRE_INACTIVOS = [
   'GRUPO DE MOTORIZADOS'
 ];
 
-// Nombre exacto del grupo de ganancias (con y sin espacio)
 const GRUPO_GANANCIAS = ['GANANCIAS', 'GANANCIAS '];
 
 const SECTORES = {
@@ -209,56 +231,43 @@ function esGrupoGanancias(nombreGrupo) {
   });
 }
 
-// ── GANANCIAS ──────────────────────────────────────────────
 function loadGanancias() {
   try {
     if (fs.existsSync(GANANCIAS_FILE)) {
       var data = JSON.parse(fs.readFileSync(GANANCIAS_FILE, 'utf8'));
       var hoy = new Date().toLocaleDateString('es-PE');
-      if (data.fecha !== hoy) return { fecha: hoy, total: 0 };
+      if (data.fecha !== hoy) return { fecha: hoy, ganancias: 0, gastos: 0 };
       return data;
     }
   } catch(e) {}
-  return { fecha: new Date().toLocaleDateString('es-PE'), total: 0 };
+  return { fecha: new Date().toLocaleDateString('es-PE'), ganancias: 0, gastos: 0 };
 }
 
 function saveGanancias(data) {
   fs.writeFileSync(GANANCIAS_FILE, JSON.stringify(data));
 }
 
-// Detecta numeros positivos o negativos en el texto
-// Soporta: "Mister 6", "Cantones 8", "menos 40 gaso", "-40", "menos40"
 function extraerMontos(texto) {
-  var total = 0;
+  var ganancias = 0;
+  var gastos = 0;
   var encontro = false;
 
-  // Detectar "menos X" o "-X" (perdidas)
   var regexMenos = /menos\s*(\d+(?:\.\d+)?)/gi;
   var matchMenos;
   while ((matchMenos = regexMenos.exec(texto)) !== null) {
-    total -= parseFloat(matchMenos[1]);
+    gastos += parseFloat(matchMenos[1]);
     encontro = true;
   }
 
-  // Detectar numeros negativos con signo "-X" que no sean parte de "menos"
-  var regexNeg = /(?<![a-zA-Z\d])[-]\s*(\d+(?:\.\d+)?)/g;
-  var matchNeg;
-  while ((matchNeg = regexNeg.exec(texto)) !== null) {
-    total -= parseFloat(matchNeg[1]);
-    encontro = true;
-  }
-
-  // Detectar patrones "palabra numero" o "numero" suelto (ganancias positivas)
-  // Evitar contar los que ya se capturaron como "menos X"
-  var textoSinMenos = texto.replace(/menos\s*\d+(?:\.\d+)?/gi, '');
+  var textoSinMenos = texto.replace(/menos\s*\d+(?:\.\d+)?[^\n]*/gi, '');
   var regexPos = /(?:[a-zA-ZáéíóúÁÉÍÓÚñÑ]+\s+)?(\d+(?:\.\d+)?)(?!\s*(?:minuto|min|hora|seg|segundo))/g;
   var matchPos;
   while ((matchPos = regexPos.exec(textoSinMenos)) !== null) {
-    total += parseFloat(matchPos[1]);
+    ganancias += parseFloat(matchPos[1]);
     encontro = true;
   }
 
-  return encontro ? total : null;
+  return encontro ? { ganancias: ganancias, gastos: gastos } : null;
 }
 
 function loadConfig() {
@@ -335,7 +344,6 @@ client.on('disconnected', function(reason) {
   } catch(e) {
     console.error('Error borrando sesion:', e);
   }
-  // Reiniciar cliente para mostrar nuevo QR sin matar proceso
   setTimeout(function() {
     try { client.initialize(); } catch(e) { process.exit(0); }
   }, 3000);
@@ -383,23 +391,28 @@ client.on('message', async function(msg) {
 
   var texto = msg.body || '';
 
-  // ── Lógica especial grupo GANANCIAS (siempre activa) ──
+  // ── Grupo GANANCIAS ──
   if (esGrupoGanancias(chat.name)) {
-    var monto = extraerMontos(texto);
-    if (monto !== null) {
+    var montos = extraerMontos(texto);
+    if (montos !== null) {
       var ganData = loadGanancias();
       var hoy = new Date().toLocaleDateString('es-PE');
-      if (ganData.fecha !== hoy) ganData = { fecha: hoy, total: 0 };
-      ganData.total = Math.round((ganData.total + monto) * 100) / 100;
+      if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
+      ganData.ganancias = Math.round((ganData.ganancias + montos.ganancias) * 100) / 100;
+      ganData.gastos = Math.round((ganData.gastos + montos.gastos) * 100) / 100;
       saveGanancias(ganData);
-      var signo = monto >= 0 ? '+' : '';
-      var emoji = monto >= 0 ? '✅' : '📉';
-      await msg.reply(emoji + ' ' + signo + monto + ' soles | Total hoy: ' + ganData.total + ' soles');
+      var totalLiquido = Math.round((ganData.ganancias - ganData.gastos) * 100) / 100;
+      var emojiLiquido = totalLiquido >= 0 ? '🤑' : '😬';
+      var respuesta =
+        '✅ GANANCIAS: Total hoy: ' + ganData.ganancias + ' soles\n' +
+        '📉 GASTOS: Total hoy: -' + ganData.gastos + ' soles\n' +
+        'TOTAL LIQUIDO ' + emojiLiquido + ': ' + totalLiquido + ' soles';
+      await msg.reply(respuesta);
     }
-    return; // No procesar como bot normal
+    return;
   }
 
-  // ── Lógica normal del bot ──
+  // ── Bot principal ──
   if (!botActivo) return;
 
   var chatId = chat.id._serialized;
@@ -504,7 +517,6 @@ app.delete('/historial', function(req, res) {
   res.json({ ok: true });
 });
 
-// Cerrar sesion desde la app
 app.post('/cerrar-sesion', async function(req, res) {
   try {
     isReady = false;
@@ -527,7 +539,6 @@ app.post('/cerrar-sesion', async function(req, res) {
 });
 
 app.get('/', function(req, res) {
-  // Mostrando QR
   if (!isReady) {
     if (!qrCodeData) {
       return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Bot</title></head>' +
@@ -552,7 +563,6 @@ app.get('/', function(req, res) {
   GRUPOS_CACHE.forEach(function(g) {
     var sector = getSectorDeGrupo(g.name);
     if (!porSector[sector]) porSector[sector] = [];
-    // No mostrar grupo GANANCIAS en la lista principal
     if (!esGrupoGanancias(g.name)) porSector[sector].push(g);
   });
 
@@ -586,12 +596,12 @@ app.get('/', function(req, res) {
       gruposDelSector + '</div>';
   });
 
-  // Ganancias del dia
   var ganData = loadGanancias();
   var hoy = new Date().toLocaleDateString('es-PE');
-  var totalHoy = (ganData.fecha === hoy) ? ganData.total : 0;
-  var ganColor = totalHoy >= 0 ? '#e8f5e9' : '#fdecea';
-  var ganEmoji = totalHoy >= 0 ? '💰' : '📉';
+  if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
+  var totalLiquido = Math.round((ganData.ganancias - ganData.gastos) * 100) / 100;
+  var ganColor = totalLiquido >= 0 ? '#e8f5e9' : '#fdecea';
+  var emojiLiquido = totalLiquido >= 0 ? '🤑' : '😬';
 
   res.send('<!DOCTYPE html><html><head>' +
     '<meta charset="UTF-8">' +
@@ -608,10 +618,11 @@ app.get('/', function(req, res) {
     '{fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}"' +
     ' style="width:100%;padding:10px 14px;font-size:15px;text-align:left;border:none;border-radius:8px;background:white;color:#e74c3c;cursor:pointer;margin-top:4px">' +
     '🚪 Cerrar sesión (escanear QR nuevo)</button></div>' +
-    // Ganancias del dia
-    '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px">' +
-    '<span style="font-weight:bold;font-size:15px">' + ganEmoji + ' Ganancias hoy: <b>' + totalHoy + ' soles</b></span></div>' +
-    // Bot toggle
+    '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8">' +
+    '<div>✅ <b>GANANCIAS:</b> Total hoy: ' + ganData.ganancias + ' soles</div>' +
+    '<div>📉 <b>GASTOS:</b> Total hoy: -' + ganData.gastos + ' soles</div>' +
+    '<div><b>TOTAL LIQUIDO ' + emojiLiquido + ':</b> ' + totalLiquido + ' soles</div>' +
+    '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:' + (botActivo?'#e8f5e9':'#fdecea') + ';border-radius:10px;margin-bottom:16px">' +
     '<span style="font-weight:bold;font-size:16px">Bot ' + (botActivo?'✅ Activo':'⛔ Inactivo') + '</span>' +
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' +
