@@ -44,7 +44,7 @@ const KEYWORDS_ESPECIALES = {
 };
 
 const KEYWORDS_GLOBALES = [
-  'pedido listo','motorizado','un delivery','delivery para el local',
+  'acercarce en 5 minutos','pedido listo','motorizado','un delivery','delivery para el local',
   'pedido en 5 minutos','pedido','pueden venir','ya esta listo el pedido',
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
