@@ -8,6 +8,7 @@ app.use(express.json());
 
 const CONFIG_FILE = '/tmp/config.json';
 const HISTORIAL_FILE = '/tmp/historial.json';
+const GANANCIAS_FILE = '/tmp/ganancias.json';
 
 const NUMEROS_IGNORADOS = [
   '51942535017','942535017','51942 535 017','942 535 017',
@@ -44,7 +45,7 @@ const KEYWORDS_ESPECIALES = {
 };
 
 const KEYWORDS_GLOBALES = [
-  'acercarce en 5 minutos','pedido listo','motorizado','un delivery','delivery para el local',
+  'pedido listo','motorizado','un delivery','delivery para el local',
   'pedido en 5 minutos','pedido','pueden venir','ya esta listo el pedido',
   'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
@@ -64,18 +65,8 @@ const KEYWORDS_EXCLUIR = [
   'cuanto es el delivery','cuanto me sale',
   'confirmo en unos minutos','confirmamos en unos minutos',
   'confirmo en un momento','confirmo en breve',
-  'en 16 minutos','en 17 minutos','en 18 minutos','en 19 minutos',
-  'en 20 minutos','en 21 minutos','en 22 minutos','en 23 minutos',
-  'en 24 minutos','en 25 minutos','en 26 minutos','en 27 minutos',
-  'en 28 minutos','en 29 minutos','en 30 minutos','en 35 minutos',
-  'en 40 minutos','en 45 minutos','en 50 minutos','en 60 minutos',
-  '16 min','17 min','18 min','19 min','20 min','21 min','22 min',
-  '23 min','24 min','25 min','26 min','27 min','28 min','29 min',
-  '30 min','35 min','40 min','45 min','50 min','60 min',
-  '16min','17min','18min','19min','20min','21min','22min',
-  '23min','24min','25min','26min','27min','28min','29min',
-  '30min','35min','40min','45min','50min','60min',
-  'media hora','1 hora','una hora'
+  '20 minutos','25 minutos','30 minutos','en 20 min','en 25 min','en 30 min',
+  '20min','25min','30min','20 min','25 min','30 min'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -85,16 +76,22 @@ const SIEMPRE_INACTIVOS = [
   'GRUPO DE MOTORIZADOS'
 ];
 
+// Nombre exacto del grupo de ganancias (con y sin espacio)
+const GRUPO_GANANCIAS = ['GANANCIAS', 'GANANCIAS '];
+
 const SECTORES = {
   'Sector PTB': [
     'CARTAS RESTAURANTES',
     'LA BUMANGUESA BOX DELIVERY',
     'MONKEY DONUTS BOX DELIVERY',
     'MONKEY DONUTS BOX DELIVERY ',
+    'Pizzería cardenatti box delivery',
+    'Pizzería cardenatti box delivery ',
     'PEÑONETTI BOX DELIVERY',
     'SHAWABURGUER BOX DELIVERY',
     'BRUCES BOX DELIVERY',
-    'BRUCES BOX DELIVERY '
+    'BRUCES BOX DELIVERY ',
+    'PUNTO CALIENTE - BOX DELIVERY'
   ],
   'Sector San José': [
     'Hola',
@@ -116,19 +113,16 @@ const SECTORES = {
     'McGrill Restaurante BOX DELIVERY',
     'REST CENTRO BOX DELIVERY',
     'REST CENTRO BOX DELIVERY ',
+    'DELIVERY BOX / LAGUNILLA',
     'MISTER JUGO BOX DELIVERY',
     'MISTER JUGO BOX DELIVERY ',
     'CANTONES - BOX DELIVERY',
-    'KANASTAS BOX DELIVERY',
-    'KANASTAS BOX DELIVERY ',
     'PIM PAM POLLO BOX DELIVERY',
     'Rincón del sabor BOX DELIVERY',
     'CHIFA CHANG KEE PEDIDOS',
     'MONO ALITAS BOX DELIVERY',
     'PUERTO RICO BOX DELIVERY',
-    'PUERTO RICO BOX DELIVERY ',
-    'PIO RICO BOX DELIVERY',
-    'PIO RICO BOX DELIVERY '
+    'PUERTO RICO BOX DELIVERY '
   ],
   'Sector La Angostura': [
     'Boletas locales',
@@ -137,24 +131,22 @@ const SECTORES = {
     'OCTAVIA LA ANGOSTURA - BOX DELIVERY'
   ],
   'Sector Comodin': [
-    'DELIVERY BOX / LAGUNILLA',
     'ARTIA PASTELERIA (dribox)',
     'PEPEFOD DELIVERY',
-    'Pizzería cardenatti box delivery',
-    'Pizzería cardenatti box delivery ',
     'MIAS BOX DELIVERY',
     'ONEST BOX DELIVERY',
     'ONEST BOX DELIVERY ',
     'Hugo Restaurante BOX DELIVERY',
     'Hugo Restaurante BOX DELIVERY ',
     'Palacio Oriental BOX DELIVERY',
-    'PUNTO CALIENTE - BOX DELIVERY',
-    'MONKEY DONUTS BOX DELIVERY',
-    'MONKEY DONUTS BOX DELIVERY ',
+    'KANASTAS BOX DELIVERY',
+    'KANASTAS BOX DELIVERY ',
+    'ROCA STEAK HOUSE BOX DELIVERY',
     'PAPEADO SAN ISIDRO BOX DELIVERY',
     'SMART NUTRITION BOX DELIVERY',
     'DELIVERY BIEN PESCAO 🏍️',
-    'ROCA STEAK HOUSE BOX DELIVERY'
+    'PIO RICO BOX DELIVERY',
+    'PIO RICO BOX DELIVERY '
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
@@ -209,6 +201,64 @@ function getSectorDeGrupo(nombreGrupo) {
     }
   }
   return 'Sector X (otros)';
+}
+
+function esGrupoGanancias(nombreGrupo) {
+  return GRUPO_GANANCIAS.some(function(n) {
+    return n.trim().toLowerCase() === nombreGrupo.trim().toLowerCase();
+  });
+}
+
+// ── GANANCIAS ──────────────────────────────────────────────
+function loadGanancias() {
+  try {
+    if (fs.existsSync(GANANCIAS_FILE)) {
+      var data = JSON.parse(fs.readFileSync(GANANCIAS_FILE, 'utf8'));
+      var hoy = new Date().toLocaleDateString('es-PE');
+      if (data.fecha !== hoy) return { fecha: hoy, total: 0 };
+      return data;
+    }
+  } catch(e) {}
+  return { fecha: new Date().toLocaleDateString('es-PE'), total: 0 };
+}
+
+function saveGanancias(data) {
+  fs.writeFileSync(GANANCIAS_FILE, JSON.stringify(data));
+}
+
+// Detecta numeros positivos o negativos en el texto
+// Soporta: "Mister 6", "Cantones 8", "menos 40 gaso", "-40", "menos40"
+function extraerMontos(texto) {
+  var total = 0;
+  var encontro = false;
+
+  // Detectar "menos X" o "-X" (perdidas)
+  var regexMenos = /menos\s*(\d+(?:\.\d+)?)/gi;
+  var matchMenos;
+  while ((matchMenos = regexMenos.exec(texto)) !== null) {
+    total -= parseFloat(matchMenos[1]);
+    encontro = true;
+  }
+
+  // Detectar numeros negativos con signo "-X" que no sean parte de "menos"
+  var regexNeg = /(?<![a-zA-Z\d])[-]\s*(\d+(?:\.\d+)?)/g;
+  var matchNeg;
+  while ((matchNeg = regexNeg.exec(texto)) !== null) {
+    total -= parseFloat(matchNeg[1]);
+    encontro = true;
+  }
+
+  // Detectar patrones "palabra numero" o "numero" suelto (ganancias positivas)
+  // Evitar contar los que ya se capturaron como "menos X"
+  var textoSinMenos = texto.replace(/menos\s*\d+(?:\.\d+)?/gi, '');
+  var regexPos = /(?:[a-zA-ZáéíóúÁÉÍÓÚñÑ]+\s+)?(\d+(?:\.\d+)?)(?!\s*(?:minuto|min|hora|seg|segundo))/g;
+  var matchPos;
+  while ((matchPos = regexPos.exec(textoSinMenos)) !== null) {
+    total += parseFloat(matchPos[1]);
+    encontro = true;
+  }
+
+  return encontro ? total : null;
 }
 
 function loadConfig() {
@@ -268,7 +318,7 @@ var client = new Client({
   puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
 });
 
-client.on('qr', function(qr) { qrCodeData = qr; });
+client.on('qr', function(qr) { qrCodeData = qr; isReady = false; });
 
 client.on('disconnected', function(reason) {
   console.log('Desconectado:', reason);
@@ -285,11 +335,15 @@ client.on('disconnected', function(reason) {
   } catch(e) {
     console.error('Error borrando sesion:', e);
   }
-  setTimeout(function() { process.exit(0); }, 1000);
+  // Reiniciar cliente para mostrar nuevo QR sin matar proceso
+  setTimeout(function() {
+    try { client.initialize(); } catch(e) { process.exit(0); }
+  }, 3000);
 });
 
 client.on('ready', async function() {
   isReady = true;
+  qrCodeData = '';
   var chats = await client.getChats();
   var grupos = chats.filter(function(c) { return c.isGroup; });
   GRUPOS_CACHE = grupos.map(function(g) { return { id: g.id._serialized, name: g.name }; });
@@ -306,7 +360,8 @@ client.on('ready', async function() {
       return g.name.toLowerCase().includes(n.toLowerCase());
     });
     var esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
-    if (esInactivo || esSectorX) {
+    var esGanancias = esGrupoGanancias(g.name);
+    if (esInactivo || (esSectorX && !esGanancias)) {
       GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(function(id) { return id !== g.id; });
       return;
     }
@@ -317,13 +372,35 @@ client.on('ready', async function() {
 });
 
 client.on('message', async function(msg) {
-  if (!botActivo) return;
+  if (!isReady) return;
+
   var esFoto = msg.hasMedia && msg.type === 'image';
   var esTexto = msg.type === 'chat';
   if (!esTexto && !esFoto) return;
 
   var chat = await msg.getChat();
   if (!chat.isGroup) return;
+
+  var texto = msg.body || '';
+
+  // ── Lógica especial grupo GANANCIAS (siempre activa) ──
+  if (esGrupoGanancias(chat.name)) {
+    var monto = extraerMontos(texto);
+    if (monto !== null) {
+      var ganData = loadGanancias();
+      var hoy = new Date().toLocaleDateString('es-PE');
+      if (ganData.fecha !== hoy) ganData = { fecha: hoy, total: 0 };
+      ganData.total = Math.round((ganData.total + monto) * 100) / 100;
+      saveGanancias(ganData);
+      var signo = monto >= 0 ? '+' : '';
+      var emoji = monto >= 0 ? '✅' : '📉';
+      await msg.reply(emoji + ' ' + signo + monto + ' soles | Total hoy: ' + ganData.total + ' soles');
+    }
+    return; // No procesar como bot normal
+  }
+
+  // ── Lógica normal del bot ──
+  if (!botActivo) return;
 
   var chatId = chat.id._serialized;
   if (!GRUPOS_ACTIVOS.includes(chatId)) return;
@@ -337,7 +414,6 @@ client.on('message', async function(msg) {
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) {
     return chat.name.toLowerCase().includes(n.toLowerCase());
   });
-  var texto = msg.body || '';
 
   if (tieneExclusion(texto)) return;
 
@@ -428,16 +504,47 @@ app.delete('/historial', function(req, res) {
   res.json({ ok: true });
 });
 
+// Cerrar sesion desde la app
+app.post('/cerrar-sesion', async function(req, res) {
+  try {
+    isReady = false;
+    botActivo = false;
+    saveConfig();
+    await client.logout();
+  } catch(e) {
+    console.log('Error logout:', e.message);
+  }
+  try {
+    var sessionPath = './.wwebjs_auth';
+    if (fs.existsSync(sessionPath)) {
+      fs.rmSync(sessionPath, { recursive: true, force: true });
+    }
+  } catch(e) {}
+  setTimeout(function() {
+    try { client.initialize(); } catch(e) { process.exit(0); }
+  }, 2000);
+  res.json({ ok: true });
+});
+
 app.get('/', function(req, res) {
-  if (!isReady && !qrCodeData) return res.send('<h1>Iniciando... recarga en 10 segundos</h1>');
+  // Mostrando QR
   if (!isReady) {
-    qrcode.toDataURL(qrCodeData).then(function(img) {
-      res.send('<html><body style="font-family:sans-serif;text-align:center">' +
-        '<h2>Escanea con WhatsApp Business</h2>' +
-        '<img src="' + img + '" style="width:280px"/>' +
-        '<p>Recarga si expira</p></body></html>');
+    if (!qrCodeData) {
+      return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Bot</title></head>' +
+        '<body style="font-family:sans-serif;text-align:center;padding:40px">' +
+        '<h2>⏳ Iniciando...</h2><p>Recarga en unos segundos</p>' +
+        '<script>setTimeout(function(){location.reload()},4000)</script></body></html>');
+    }
+    return qrcode.toDataURL(qrCodeData).then(function(img) {
+      res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Bot - QR</title></head>' +
+        '<body style="font-family:sans-serif;text-align:center;padding:30px">' +
+        '<h2>📱 Escanea con WhatsApp Business</h2>' +
+        '<img src="' + img + '" style="width:280px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.15)"/>' +
+        '<p style="color:#888;font-size:13px">Abre WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>' +
+        '<p style="color:#aaa;font-size:12px">Recarga si expira</p>' +
+        '<script>setTimeout(function(){location.reload()},30000)</script>' +
+        '</body></html>');
     });
-    return;
   }
 
   var porSector = {};
@@ -445,7 +552,8 @@ app.get('/', function(req, res) {
   GRUPOS_CACHE.forEach(function(g) {
     var sector = getSectorDeGrupo(g.name);
     if (!porSector[sector]) porSector[sector] = [];
-    porSector[sector].push(g);
+    // No mostrar grupo GANANCIAS en la lista principal
+    if (!esGrupoGanancias(g.name)) porSector[sector].push(g);
   });
 
   var sectoresHtml = '';
@@ -478,6 +586,13 @@ app.get('/', function(req, res) {
       gruposDelSector + '</div>';
   });
 
+  // Ganancias del dia
+  var ganData = loadGanancias();
+  var hoy = new Date().toLocaleDateString('es-PE');
+  var totalHoy = (ganData.fecha === hoy) ? ganData.total : 0;
+  var ganColor = totalHoy >= 0 ? '#e8f5e9' : '#fdecea';
+  var ganEmoji = totalHoy >= 0 ? '💰' : '📉';
+
   res.send('<!DOCTYPE html><html><head>' +
     '<meta charset="UTF-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
@@ -488,7 +603,15 @@ app.get('/', function(req, res) {
     '<button onclick="document.getElementById(\'menu\').classList.toggle(\'hidden\')" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>' +
     '<div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">' +
     '<a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">' +
-    '📋 Historial de respuestas <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a></div>' +
+    '📋 Historial de respuestas <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a>' +
+    '<button onclick="if(confirm(\'¿Cerrar sesión de WhatsApp? Deberás escanear el QR nuevamente.\'))' +
+    '{fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}"' +
+    ' style="width:100%;padding:10px 14px;font-size:15px;text-align:left;border:none;border-radius:8px;background:white;color:#e74c3c;cursor:pointer;margin-top:4px">' +
+    '🚪 Cerrar sesión (escanear QR nuevo)</button></div>' +
+    // Ganancias del dia
+    '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px">' +
+    '<span style="font-weight:bold;font-size:15px">' + ganEmoji + ' Ganancias hoy: <b>' + totalHoy + ' soles</b></span></div>' +
+    // Bot toggle
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:' + (botActivo?'#e8f5e9':'#fdecea') + ';border-radius:10px;margin-bottom:16px">' +
     '<span style="font-weight:bold;font-size:16px">Bot ' + (botActivo?'✅ Activo':'⛔ Inactivo') + '</span>' +
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' +
