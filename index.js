@@ -32,7 +32,6 @@ const NUMEROS_IGNORADOS = [
   '51936899473','936899473','51936 899 473','936 899 473',
   '51956856787','956856787','51956 856 787','956 856 787',
   '51910795590','910795590','51910 795 590','910 795 590',
-  // Nuevos numeros ignorados
   '51934572456','934572456','51934 572 456','934 572 456',
   '51972077603','972077603','51972 077 603','972 077 603',
   '51972066872','972066872','51972 066 872','972 066 872',
@@ -53,6 +52,11 @@ const NUMEROS_IGNORADOS = [
   '51902425988','902425988','51902 425 988','902 425 988',
   '51973155047','973155047','51973 155 047','973 155 047',
   '34641095746','34641 09 57 46','34 641 09 57 46'
+];
+
+// Numeros del dueño que SÍ pueden escribir en GANANCIAS
+const NUMEROS_DUENO = [
+  '51939610396','939610396','51939 610 396','939 610 396'
 ];
 
 const GRUPOS_FOTO = [
@@ -231,6 +235,12 @@ function esGrupoGanancias(nombreGrupo) {
   });
 }
 
+function esDueno(numero) {
+  return NUMEROS_DUENO.some(function(n) {
+    return n.replace(/\s/g,'') === numero.replace(/\s/g,'');
+  });
+}
+
 function loadGanancias() {
   try {
     if (fs.existsSync(GANANCIAS_FILE)) {
@@ -247,27 +257,53 @@ function saveGanancias(data) {
   fs.writeFileSync(GANANCIAS_FILE, JSON.stringify(data));
 }
 
+// Extrae montos con formato estricto:
+// Ganancias: "Palabra numero" ej: "Mister 6", "Cantones 8"
+// Gastos: "menos numero" ej: "menos 40", "menos 40 gasolina"
 function extraerMontos(texto) {
   var ganancias = 0;
   var gastos = 0;
   var encontro = false;
 
-  var regexMenos = /menos\s*(\d+(?:\.\d+)?)/gi;
+  // Detectar gastos: "menos X" — solo el numero que sigue a "menos"
+  var regexMenos = /\bmenos\s+(\d{1,6}(?:\.\d{1,2})?)\b/gi;
   var matchMenos;
   while ((matchMenos = regexMenos.exec(texto)) !== null) {
     gastos += parseFloat(matchMenos[1]);
     encontro = true;
   }
 
-  var textoSinMenos = texto.replace(/menos\s*\d+(?:\.\d+)?[^\n]*/gi, '');
-  var regexPos = /(?:[a-zA-ZáéíóúÁÉÍÓÚñÑ]+\s+)?(\d+(?:\.\d+)?)(?!\s*(?:minuto|min|hora|seg|segundo))/g;
+  // Detectar ganancias: "UnaOVariasPalabras numero" — patron estricto
+  // Solo captura si hay una palabra justo antes del numero
+  var textoSinMenos = texto.replace(/\bmenos\s+\d{1,6}(?:\.\d{1,2})?[^\n]*/gi, '');
+  var regexPos = /\b([a-zA-ZáéíóúÁÉÍÓÚñÑ][a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{0,30}?)\s+(\d{1,5}(?:\.\d{1,2})?)\s*$/gm;
   var matchPos;
   while ((matchPos = regexPos.exec(textoSinMenos)) !== null) {
-    ganancias += parseFloat(matchPos[1]);
-    encontro = true;
+    var num = parseFloat(matchPos[2]);
+    if (num > 0 && num <= 99999) {
+      ganancias += num;
+      encontro = true;
+    }
   }
 
-  return encontro ? { ganancias: ganancias, gastos: gastos } : null;
+  // Si no matcheo con patron estricto, intentar numero solo en linea
+  if (!encontro || ganancias === 0) {
+    var lineas = textoSinMenos.split('\n');
+    lineas.forEach(function(linea) {
+      var trimmed = linea.trim();
+      // Solo una palabra seguida de numero, o solo numero
+      var m = trimmed.match(/^([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+\s+)?(\d{1,5}(?:\.\d{1,2})?)$/);
+      if (m) {
+        var num = parseFloat(m[2]);
+        if (num > 0 && num <= 99999) {
+          ganancias += num;
+          encontro = true;
+        }
+      }
+    });
+  }
+
+  return encontro ? { ganancias: Math.round(ganancias * 100) / 100, gastos: Math.round(gastos * 100) / 100 } : null;
 }
 
 function loadConfig() {
@@ -391,10 +427,17 @@ client.on('message', async function(msg) {
 
   var texto = msg.body || '';
 
+  // Obtener numero del remitente
+  var numero = msg.author ? msg.author.replace('@c.us', '') : msg.from.replace('@c.us', '');
+
   // ── Grupo GANANCIAS ──
   if (esGrupoGanancias(chat.name)) {
+    // Solo responder si es el dueño o alguien que no sea el bot mismo
+    // El bot no puede leer sus propios mensajes enviados, pero por si acaso
+    if (!esDueno(numero) && msg.fromMe) return;
+
     var montos = extraerMontos(texto);
-    if (montos !== null) {
+    if (montos !== null && (montos.ganancias > 0 || montos.gastos > 0)) {
       var ganData = loadGanancias();
       var hoy = new Date().toLocaleDateString('es-PE');
       if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
@@ -421,7 +464,6 @@ client.on('message', async function(msg) {
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
   if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
 
-  var numero = msg.author ? msg.author.replace('@c.us', '') : msg.from.replace('@c.us', '');
   if (NUMEROS_IGNORADOS.includes(numero)) return;
 
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) {
