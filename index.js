@@ -387,6 +387,18 @@ function extraerEntradas(texto) {
       return;
     }
 
+    // Detectar "numero palabra(s)" -> ganancia
+    var mGananciaInv = trimmed.match(/^(\d{1,5}(?:\.\d{1,2})?)\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ][a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{0,40})$/);
+    if (mGananciaInv) {
+      var monto4 = parseFloat(mGananciaInv[1]);
+      var palabraClave2 = mGananciaInv[2].trim();
+      if (monto4 > 0 && monto4 <= 99999) {
+        var localNombre2 = buscarLocal(palabraClave2) || palabraClave2;
+        entradas.push({ tipo: 'local', nombre: localNombre2, monto: monto4 });
+      }
+      return;
+    }
+
     // Solo numero (ganancia sin etiqueta)
     var mSoloNum = trimmed.match(/^(\d{1,5}(?:\.\d{1,2})?)$/);
     if (mSoloNum) {
@@ -638,7 +650,7 @@ client.on('message', async function(msg) {
         '✅ GANANCIAS: Total hoy: ' + ganData.ganancias + ' soles\n' +
         '📉 GASTOS: Total hoy: -' + ganData.gastos + ' soles\n' +
         'TOTAL LIQUIDO ' + emojiLiquido + ': ' + totalLiquido + ' soles';
-      await msg.reply(respuesta);
+      await chat.sendMessage(respuesta);
     }
     return;
   }
