@@ -12,6 +12,7 @@ const GANANCIAS_FILE = '/tmp/ganancias.json';
 const REPORTE_FILE = '/tmp/reporte_semanal.json';
 
 const NUMEROS_IGNORADOS = [
+  '272984178720993',
   '51942535017','942535017','51942 535 017','942 535 017',
   '51960186738','960186738','51960 186 738','960 186 738',
   '51946043902','946043902','51946 043 902','946 043 902',
@@ -608,18 +609,10 @@ client.on('message', async function(msg) {
   if (!chat.isGroup) return;
 
   var texto = msg.body || '';
-  var numero = (msg.author ? msg.author : msg.from).replace(/@.*/, '').replace(/[^0-9]/g, '');
+  var contacto = await msg.getContact();
+  var numero = contacto.id.user || (msg.author ? msg.author : msg.from).replace(/@.*/, '').replace(/[^0-9]/g, '');
 
-  if (msg.author && msg.author.includes('@lid')) {
-    try {
-      var contact = await msg.getContact();
-      if (contact && contact.number) {
-        numero = contact.number.replace(/[^0-9]/g, '');
-      }
-    } catch(e) {}
-  }
-
-  console.log('DEBUG numero:', numero, '| author:', msg.author, '| from:', msg.from, '| chat:', chat.name);
+  console.log('DEBUG numero:', numero, '| author:', msg.author, '| contact.id.user:', contacto.id.user, '| chat:', chat.name);
 
   if (NUMEROS_IGNORADOS.includes(numero)) return;
 
