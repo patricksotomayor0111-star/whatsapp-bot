@@ -9,6 +9,7 @@ app.use(express.json());
 const CONFIG_FILE = '/tmp/config.json';
 const HISTORIAL_FILE = '/tmp/historial.json';
 const GANANCIAS_FILE = '/tmp/ganancias.json';
+const REPORTE_FILE = '/tmp/reporte_semanal.json';
 
 const NUMEROS_IGNORADOS = [
   '51942535017','942535017','51942 535 017','942 535 017',
@@ -32,7 +33,6 @@ const NUMEROS_IGNORADOS = [
   '51936899473','936899473','51936 899 473','936 899 473',
   '51956856787','956856787','51956 856 787','956 856 787',
   '51910795590','910795590','51910 795 590','910 795 590',
-  // Nuevos numeros ignorados
   '51934572456','934572456','51934 572 456','934 572 456',
   '51972077603','972077603','51972 077 603','972 077 603',
   '51972066872','972066872','51972 066 872','972 066 872',
@@ -53,6 +53,10 @@ const NUMEROS_IGNORADOS = [
   '51902425988','902425988','51902 425 988','902 425 988',
   '51973155047','973155047','51973 155 047','973 155 047',
   '34641095746','34641 09 57 46','34 641 09 57 46'
+];
+
+const NUMEROS_DUENO = [
+  '51939610396','939610396','51939 610 396','939 610 396'
 ];
 
 const GRUPOS_FOTO = [
@@ -77,7 +81,8 @@ const KEYWORDS_GLOBALES = [
   'vengan','venga','delivery','confirmado','recoger',
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
-  'se acerca al local','se acerca al local en estos momentos','acercandose al local'
+  'se acerca al local','se acerca al local en estos momentos','acercandose al local',
+  'hola uno por favor'
 ];
 
 const KEYWORDS_EXCLUIR = [
@@ -100,6 +105,66 @@ const SIEMPRE_INACTIVOS = [
 ];
 
 const GRUPO_GANANCIAS = ['GANANCIAS', 'GANANCIAS '];
+
+// Mapa de abreviaciones y nombres completos de locales
+const LOCALES_MAP = {
+  // PTB
+  'car': 'Cartas Restaurantes', 'cartas restaurantes': 'Cartas Restaurantes',
+  'lab': 'La Bumanguesa', 'la bumanguesa': 'La Bumanguesa',
+  'mon': 'Monkey Donuts', 'monkey donuts': 'Monkey Donuts',
+  'piz': 'Pizzería Cardenatti', 'pizzeria cardenatti': 'Pizzería Cardenatti', 'cardenatti': 'Pizzería Cardenatti',
+  'pen': 'Peñonetti', 'peñonetti': 'Peñonetti',
+  'sha': 'Shawaburguer', 'shawaburguer': 'Shawaburguer',
+  'bru': 'Bruces', 'bruces': 'Bruces',
+  'pun': 'Punto Caliente', 'punto caliente': 'Punto Caliente',
+  // San José
+  'hol': 'Hola', 'hola': 'Hola',
+  'the': 'The Crown', 'the crown': 'The Crown',
+  'har': 'Harvest', 'harvest': 'Harvest',
+  'ric': 'Ricos Protein', 'ricos protein': 'Ricos Protein',
+  'aya': 'Ayabaca', 'ayabaca': 'Ayabaca',
+  'mis': 'Misky Polleria', 'misky': 'Misky Polleria', 'misky polleria': 'Misky Polleria',
+  'kam': 'Kam Long', 'kam long': 'Kam Long',
+  'boc': 'Bochitos', 'bochitos': 'Bochitos',
+  'las': 'Las Nieves', 'las nieves': 'Las Nieves',
+  'hel': 'Heladería El Pingüino', 'heladeria': 'Heladería El Pingüino', 'pinguino': 'Heladería El Pingüino',
+  'mrs': 'Mr. Sushi', 'mr sushi': 'Mr. Sushi', 'mr. sushi': 'Mr. Sushi',
+  // Moderna
+  'bub': 'Bubaton', 'bubaton': 'Bubaton',
+  'cra': 'Crazy Corn', 'crazy corn': 'Crazy Corn',
+  'chi': 'Chifa Liu', 'chifa liu': 'Chifa Liu',
+  'mcg': 'McGrill', 'mcgrill': 'McGrill',
+  'res': 'Rest Centro', 'rest centro': 'Rest Centro',
+  'del': 'Lagunilla', 'lagunilla': 'Lagunilla',
+  'mij': 'Mister Jugo', 'mister jugo': 'Mister Jugo',
+  'can': 'Cantones', 'cantones': 'Cantones',
+  'pim': 'Pim Pam Pollo', 'pim pam': 'Pim Pam Pollo', 'pim pam pollo': 'Pim Pam Pollo',
+  'rin': 'Rincón del Sabor', 'rincon': 'Rincón del Sabor', 'rincon del sabor': 'Rincón del Sabor',
+  'chc': 'Chifa Chang Kee', 'chifa chang': 'Chifa Chang Kee', 'chifa chang kee': 'Chifa Chang Kee',
+  'moa': 'Mono Alitas', 'mono alitas': 'Mono Alitas',
+  'pue': 'Puerto Rico', 'puerto rico': 'Puerto Rico',
+  // Comodin
+  'art': 'Artia', 'artia': 'Artia',
+  'pep': 'Pepefod', 'pepefod': 'Pepefod',
+  'mia': 'Mias', 'mias': 'Mias',
+  'one': 'Onest', 'onest': 'Onest',
+  'hug': 'Hugo Restaurante', 'hugo': 'Hugo Restaurante', 'hugo restaurante': 'Hugo Restaurante',
+  'pal': 'Palacio Oriental', 'palacio': 'Palacio Oriental', 'palacio oriental': 'Palacio Oriental',
+  'kan': 'Kanastas', 'kanastas': 'Kanastas',
+  'roc': 'Roca Steak House', 'roca': 'Roca Steak House', 'roca steak': 'Roca Steak House',
+  'pap': 'Papeado San Isidro', 'papeado': 'Papeado San Isidro',
+  'sma': 'Smart Nutrition', 'smart': 'Smart Nutrition', 'smart nutrition': 'Smart Nutrition',
+  'deb': 'Delivery Bien Pescao', 'bien pescao': 'Delivery Bien Pescao',
+  'pio': 'Pio Rico', 'pio rico': 'Pio Rico',
+  // Angostura
+  'bol': 'Boletas', 'boletas': 'Boletas',
+  'don': 'Don Alejandro', 'don alejandro': 'Don Alejandro',
+  'elb': 'El Borgo', 'el borgo': 'El Borgo',
+  'oct': 'Octavia', 'octavia': 'Octavia',
+  // Pedidos especiales
+  'bas': 'Base', 'base': 'Base',
+  'per': 'Personal', 'personal': 'Personal'
+};
 
 const SECTORES = {
   'Sector PTB': [
@@ -231,6 +296,25 @@ function esGrupoGanancias(nombreGrupo) {
   });
 }
 
+function esDueno(numero) {
+  return NUMEROS_DUENO.some(function(n) {
+    return n.replace(/\s/g,'') === numero.replace(/\s/g,'');
+  });
+}
+
+// Busca el nombre del local en el mapa por abreviacion o nombre completo
+function buscarLocal(palabraClave) {
+  var clave = normalizar(palabraClave).trim();
+  // Buscar exacto primero
+  if (LOCALES_MAP[clave]) return LOCALES_MAP[clave];
+  // Buscar parcial
+  var keys = Object.keys(LOCALES_MAP);
+  for (var i = 0; i < keys.length; i++) {
+    if (normalizar(keys[i]) === clave) return LOCALES_MAP[keys[i]];
+  }
+  return null;
+}
+
 function loadGanancias() {
   try {
     if (fs.existsSync(GANANCIAS_FILE)) {
@@ -247,27 +331,128 @@ function saveGanancias(data) {
   fs.writeFileSync(GANANCIAS_FILE, JSON.stringify(data));
 }
 
-function extraerMontos(texto) {
-  var ganancias = 0;
-  var gastos = 0;
-  var encontro = false;
+function loadReporte() {
+  try {
+    if (fs.existsSync(REPORTE_FILE)) {
+      return JSON.parse(fs.readFileSync(REPORTE_FILE, 'utf8'));
+    }
+  } catch(e) {}
+  // semana: { locales: {NombreLocal: total}, gastos: {NombreGasto: total} }
+  return { semana_inicio: getFechaLunesActual(), locales: {}, gastos: {} };
+}
 
-  var regexMenos = /menos\s*(\d+(?:\.\d+)?)/gi;
-  var matchMenos;
-  while ((matchMenos = regexMenos.exec(texto)) !== null) {
-    gastos += parseFloat(matchMenos[1]);
-    encontro = true;
+function saveReporte(data) {
+  fs.writeFileSync(REPORTE_FILE, JSON.stringify(data));
+}
+
+function getFechaLunesActual() {
+  var hoy = new Date();
+  var dia = hoy.getDay(); // 0=dom, 1=lun...
+  var diff = (dia === 0) ? -6 : 1 - dia;
+  var lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() + diff);
+  return lunes.toLocaleDateString('es-PE');
+}
+
+// Extrae montos con formato: "local numero" o "menos numero descripcion"
+// Retorna array de { tipo: 'local'|'gasto', nombre, monto }
+function extraerEntradas(texto) {
+  var entradas = [];
+  var lineas = texto.split('\n');
+
+  lineas.forEach(function(linea) {
+    var trimmed = linea.trim();
+    if (!trimmed) return;
+
+    // Detectar gasto: "menos X descripcion"
+    var mGasto = trimmed.match(/^menos\s+(\d{1,6}(?:\.\d{1,2})?)\s*(.*)?$/i);
+    if (mGasto) {
+      var monto = parseFloat(mGasto[1]);
+      var desc = mGasto[2] ? mGasto[2].trim() : 'Otros';
+      if (!desc) desc = 'Otros';
+      if (monto > 0 && monto <= 99999) {
+        entradas.push({ tipo: 'gasto', nombre: desc, monto: monto });
+      }
+      return;
+    }
+
+    // Detectar ganancia: "palabra(s) numero"
+    var mGanancia = trimmed.match(/^([a-zA-ZáéíóúÁÉÍÓÚñÑ][a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{0,40}?)\s+(\d{1,5}(?:\.\d{1,2})?)$/);
+    if (mGanancia) {
+      var palabraClave = mGanancia[1].trim();
+      var monto2 = parseFloat(mGanancia[2]);
+      if (monto2 > 0 && monto2 <= 99999) {
+        var localNombre = buscarLocal(palabraClave) || palabraClave;
+        entradas.push({ tipo: 'local', nombre: localNombre, monto: monto2 });
+      }
+      return;
+    }
+
+    // Detectar "numero palabra(s)" -> ganancia
+    var mGananciaInv = trimmed.match(/^(\d{1,5}(?:\.\d{1,2})?)\s+([a-zA-ZáéíóúÁÉÍÓÚñÑ][a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{0,40})$/);
+    if (mGananciaInv) {
+      var monto4 = parseFloat(mGananciaInv[1]);
+      var palabraClave2 = mGananciaInv[2].trim();
+      if (monto4 > 0 && monto4 <= 99999) {
+        var localNombre2 = buscarLocal(palabraClave2) || palabraClave2;
+        entradas.push({ tipo: 'local', nombre: localNombre2, monto: monto4 });
+      }
+      return;
+    }
+
+    // Solo numero (ganancia sin etiqueta)
+    var mSoloNum = trimmed.match(/^(\d{1,5}(?:\.\d{1,2})?)$/);
+    if (mSoloNum) {
+      var monto3 = parseFloat(mSoloNum[1]);
+      if (monto3 > 0 && monto3 <= 99999) {
+        entradas.push({ tipo: 'local', nombre: 'Sin etiqueta', monto: monto3 });
+      }
+    }
+  });
+
+  return entradas;
+}
+
+function generarTextoReporte(rep, fechaInicio, fechaFin) {
+  var totalLocales = 0;
+  var totalGastos = 0;
+
+  var lineasLocales = Object.keys(rep.locales).map(function(nombre) {
+    totalLocales += rep.locales[nombre];
+    return '  • ' + nombre + ': ' + rep.locales[nombre] + ' soles';
+  });
+
+  var lineasGastos = Object.keys(rep.gastos).map(function(nombre) {
+    totalGastos += rep.gastos[nombre];
+    return '  • ' + nombre + ': ' + rep.gastos[nombre] + ' soles';
+  });
+
+  totalLocales = Math.round(totalLocales * 100) / 100;
+  totalGastos = Math.round(totalGastos * 100) / 100;
+  var liquido = Math.round((totalLocales - totalGastos) * 100) / 100;
+  var emoji = liquido >= 0 ? '🤑' : '😬';
+
+  var texto = '📊 *REPORTE SEMANAL*\n';
+  texto += '📅 ' + fechaInicio + ' al ' + fechaFin + '\n';
+  texto += '─────────────────\n';
+  texto += '✅ *GANANCIAS POR LOCAL:*\n';
+  if (lineasLocales.length > 0) {
+    texto += lineasLocales.join('\n') + '\n';
+  } else {
+    texto += '  (sin registros)\n';
   }
-
-  var textoSinMenos = texto.replace(/menos\s*\d+(?:\.\d+)?[^\n]*/gi, '');
-  var regexPos = /(?:[a-zA-ZáéíóúÁÉÍÓÚñÑ]+\s+)?(\d+(?:\.\d+)?)(?!\s*(?:minuto|min|hora|seg|segundo))/g;
-  var matchPos;
-  while ((matchPos = regexPos.exec(textoSinMenos)) !== null) {
-    ganancias += parseFloat(matchPos[1]);
-    encontro = true;
+  texto += '💰 *Total ganancias: ' + totalLocales + ' soles*\n';
+  texto += '─────────────────\n';
+  texto += '📉 *GASTOS:*\n';
+  if (lineasGastos.length > 0) {
+    texto += lineasGastos.join('\n') + '\n';
+  } else {
+    texto += '  (sin registros)\n';
   }
-
-  return encontro ? { ganancias: ganancias, gastos: gastos } : null;
+  texto += '💸 *Total gastos: ' + totalGastos + ' soles*\n';
+  texto += '─────────────────\n';
+  texto += 'TOTAL LIQUIDO ' + emoji + ': *' + liquido + ' soles*';
+  return texto;
 }
 
 function loadConfig() {
@@ -314,6 +499,7 @@ var lastReply = {};
 var COOLDOWN = 5 * 60 * 1000;
 var AUTO_REPLY = 'Voy';
 var sseClients = [];
+var reporteEnviado = false;
 
 function enviarNotificacion(grupo, hora) {
   var data = JSON.stringify({ grupo: grupo, hora: hora });
@@ -321,6 +507,38 @@ function enviarNotificacion(grupo, hora) {
     try { res.write('data: ' + data + '\n\n'); return true; } catch(e) { return false; }
   });
 }
+
+// Verificar cada minuto si es domingo 23:59 para enviar reporte
+setInterval(async function() {
+  if (!isReady) return;
+  var ahora = new Date();
+  var esDomingo = ahora.getDay() === 0;
+  var esHora = ahora.getHours() === 23 && ahora.getMinutes() === 59;
+  if (esDomingo && esHora && !reporteEnviado) {
+    reporteEnviado = true;
+    try {
+      var chats = await client.getChats();
+      var grupoGan = chats.find(function(c) {
+        return c.isGroup && esGrupoGanancias(c.name);
+      });
+      if (grupoGan) {
+        var rep = loadReporte();
+        var hoy = ahora.toLocaleDateString('es-PE');
+        var lunes = rep.semana_inicio || getFechaLunesActual();
+        var textoReporte = generarTextoReporte(rep, lunes, hoy);
+        await grupoGan.sendMessage(textoReporte);
+        // Resetear reporte para la semana siguiente
+        saveReporte({ semana_inicio: getFechaLunesActual(), locales: {}, gastos: {} });
+      }
+    } catch(e) {
+      console.log('Error enviando reporte:', e.message);
+    }
+  }
+  // Resetear flag a medianoche
+  if (ahora.getHours() === 0 && ahora.getMinutes() === 0) {
+    reporteEnviado = false;
+  }
+}, 60 * 1000);
 
 var client = new Client({
   authStrategy: new LocalAuth(),
@@ -390,24 +608,54 @@ client.on('message', async function(msg) {
   if (!chat.isGroup) return;
 
   var texto = msg.body || '';
+  var numero = (msg.author ? msg.author : msg.from).replace(/@.*/, '').replace(/[^0-9]/g, '');
+
+  console.log('DEBUG numero:', numero, '| author:', msg.author, '| from:', msg.from, '| chat:', chat.name);
+
+  if (NUMEROS_IGNORADOS.includes(numero)) return;
 
   // ── Grupo GANANCIAS ──
   if (esGrupoGanancias(chat.name)) {
-    var montos = extraerMontos(texto);
-    if (montos !== null) {
+    var entradas = extraerEntradas(texto);
+    if (entradas.length > 0) {
+      // Actualizar ganancias del dia
       var ganData = loadGanancias();
       var hoy = new Date().toLocaleDateString('es-PE');
       if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
-      ganData.ganancias = Math.round((ganData.ganancias + montos.ganancias) * 100) / 100;
-      ganData.gastos = Math.round((ganData.gastos + montos.gastos) * 100) / 100;
+
+      // Actualizar reporte semanal
+      var rep = loadReporte();
+      var lunesActual = getFechaLunesActual();
+      if (rep.semana_inicio !== lunesActual) {
+        rep = { semana_inicio: lunesActual, locales: {}, gastos: {} };
+      }
+
+      var totalGanancia = 0;
+      var totalGasto = 0;
+
+      entradas.forEach(function(entrada) {
+        if (entrada.tipo === 'local') {
+          totalGanancia += entrada.monto;
+          rep.locales[entrada.nombre] = Math.round(((rep.locales[entrada.nombre] || 0) + entrada.monto) * 100) / 100;
+        } else {
+          totalGasto += entrada.monto;
+          var nombreGasto = entrada.nombre.charAt(0).toUpperCase() + entrada.nombre.slice(1);
+          rep.gastos[nombreGasto] = Math.round(((rep.gastos[nombreGasto] || 0) + entrada.monto) * 100) / 100;
+        }
+      });
+
+      ganData.ganancias = Math.round((ganData.ganancias + totalGanancia) * 100) / 100;
+      ganData.gastos = Math.round((ganData.gastos + totalGasto) * 100) / 100;
       saveGanancias(ganData);
+      saveReporte(rep);
+
       var totalLiquido = Math.round((ganData.ganancias - ganData.gastos) * 100) / 100;
       var emojiLiquido = totalLiquido >= 0 ? '🤑' : '😬';
       var respuesta =
         '✅ GANANCIAS: Total hoy: ' + ganData.ganancias + ' soles\n' +
         '📉 GASTOS: Total hoy: -' + ganData.gastos + ' soles\n' +
         'TOTAL LIQUIDO ' + emojiLiquido + ': ' + totalLiquido + ' soles';
-      await msg.reply(respuesta);
+      await chat.sendMessage(respuesta);
     }
     return;
   }
@@ -420,9 +668,6 @@ client.on('message', async function(msg) {
 
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
   if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
-
-  var numero = msg.author ? msg.author.replace('@c.us', '') : msg.from.replace('@c.us', '');
-  if (NUMEROS_IGNORADOS.includes(numero)) return;
 
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) {
     return chat.name.toLowerCase().includes(n.toLowerCase());
