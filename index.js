@@ -509,35 +509,94 @@ function enviarNotificacion(grupo, hora) {
   });
 }
 
-// Verificar cada minuto si es domingo 23:59 para enviar reporte
+var reporteDiarioEnviado = false;
+
+// Verificar cada minuto para reporte diario y semanal
 setInterval(async function() {
   if (!isReady) return;
   var ahora = new Date();
   var esDomingo = ahora.getDay() === 0;
-  var esHora = ahora.getHours() === 23 && ahora.getMinutes() === 59;
-  if (esDomingo && esHora && !reporteEnviado) {
-    reporteEnviado = true;
+  var esHora2359 = ahora.getHours() === 23 && ahora.getMinutes() === 59;
+
+  // Reporte diario a las 23:59
+  if (esHora2359 && !reporteDiarioEnviado) {
+    reporteDiarioEnviado = true;
     try {
       var chats = await client.getChats();
       var grupoGan = chats.find(function(c) {
         return c.isGroup && esGrupoGanancias(c.name);
       });
       if (grupoGan) {
-        var rep = loadReporte();
+        var ganData = loadGanancias();
         var hoy = ahora.toLocaleDateString('es-PE');
-        var lunes = rep.semana_inicio || getFechaLunesActual();
-        var textoReporte = generarTextoReporte(rep, lunes, hoy);
-        await grupoGan.sendMessage(textoReporte);
-        // Resetear reporte para la semana siguiente
-        saveReporte({ semana_inicio: getFechaLunesActual(), locales: {}, gastos: {} });
+        var rep = loadReporte();
+
+        // Construir resumen del dia
+        var textoDiario = '📋 *RESUMEN DEL DÍA - ' + hoy + '*\n';
+        textoDiario += '─────────────────\n';
+        textoDiario += '✅ *GANANCIAS POR LOCAL:*\n';
+        var localesHoy = Object.keys(rep.localesHoy || {});
+        if (localesHoy.length > 0) {
+          localesHoy.forEach(function(nombre) {
+            textoDiario += '  • ' + nombre + ': ' + rep.localesHoy[nombre] + ' soles\n';
+          });
+        } else {
+          textoDiario += '  (sin registros)\n';
+        }
+        textoDiario += '💰 *Total ganancias: ' + ganData.ganancias + ' soles*\n';
+        textoDiario += '─────────────────\n';
+        textoDiario += '📉 *GASTOS:*\n';
+        var gastosHoy = Object.keys(rep.gastosHoy || {});
+        if (gastosHoy.length > 0) {
+          gastosHoy.forEach(function(nombre) {
+            textoDiario += '  • ' + nombre + ': ' + rep.gastosHoy[nombre] + ' soles\n';
+          });
+        } else {
+          textoDiario += '  (sin registros)\n';
+        }
+        textoDiario += '💸 *Total gastos: ' + ganData.gastos + ' soles*\n';
+        textoDiario += '─────────────────\n';
+        var liquidoDiario = Math.round((ganData.ganancias - ganData.gastos) * 100) / 100;
+        var emojiDiario = liquidoDiario >= 0 ? '🤑' : '😬';
+        textoDiario += 'TOTAL LIQUIDO ' + emojiDiario + ': *' + liquidoDiario + ' soles*';
+
+        await grupoGan.sendMessage(textoDiario);
+
+        // Resetear localesHoy y gastosHoy para el dia siguiente
+        rep.localesHoy = {};
+        rep.gastosHoy = {};
+        saveReporte(rep);
       }
     } catch(e) {
-      console.log('Error enviando reporte:', e.message);
+      console.log('Error reporte diario:', e.message);
+    }
+
+    // Reporte semanal solo el domingo
+    if (esDomingo && !reporteEnviado) {
+      reporteEnviado = true;
+      try {
+        var chats2 = await client.getChats();
+        var grupoGan2 = chats2.find(function(c) {
+          return c.isGroup && esGrupoGanancias(c.name);
+        });
+        if (grupoGan2) {
+          var rep2 = loadReporte();
+          var hoy2 = ahora.toLocaleDateString('es-PE');
+          var lunes = rep2.semana_inicio || getFechaLunesActual();
+          var textoReporte = generarTextoReporte(rep2, lunes, hoy2);
+          await grupoGan2.sendMessage(textoReporte);
+          saveReporte({ semana_inicio: getFechaLunesActual(), locales: {}, gastos: {}, localesHoy: {}, gastosHoy: {} });
+        }
+      } catch(e) {
+        console.log('Error reporte semanal:', e.message);
+      }
     }
   }
-  // Resetear flag a medianoche
+
+  // Resetear flags a medianoche
   if (ahora.getHours() === 0 && ahora.getMinutes() === 0) {
     reporteEnviado = false;
+    reporteDiarioEnviado = false;
   }
 }, 60 * 1000);
 
@@ -618,6 +677,15 @@ client.on('message', async function(msg) {
 
   // ── Grupo GANANCIAS ──
   if (esGrupoGanancias(chat.name)) {
+
+    // Comando reset
+    if (texto.trim().toLowerCase() === 'reset') {
+      var hoyReset = new Date().toLocaleDateString('es-PE');
+      saveGanancias({ fecha: hoyReset, ganancias: 0, gastos: 0 });
+      await chat.sendMessage('✅ Listo, nuevo día\n✅ GANANCIAS: Total hoy: 0 soles\n📉 GASTOS: Total hoy: -0 soles\nTOTAL LIQUIDO 🤑: 0 soles');
+      return;
+    }
+
     var entradas = extraerEntradas(texto);
     if (entradas.length > 0) {
       // Actualizar ganancias del dia
@@ -639,10 +707,14 @@ client.on('message', async function(msg) {
         if (entrada.tipo === 'local') {
           totalGanancia += entrada.monto;
           rep.locales[entrada.nombre] = Math.round(((rep.locales[entrada.nombre] || 0) + entrada.monto) * 100) / 100;
+          if (!rep.localesHoy) rep.localesHoy = {};
+          rep.localesHoy[entrada.nombre] = Math.round(((rep.localesHoy[entrada.nombre] || 0) + entrada.monto) * 100) / 100;
         } else {
           totalGasto += entrada.monto;
           var nombreGasto = entrada.nombre.charAt(0).toUpperCase() + entrada.nombre.slice(1);
           rep.gastos[nombreGasto] = Math.round(((rep.gastos[nombreGasto] || 0) + entrada.monto) * 100) / 100;
+          if (!rep.gastosHoy) rep.gastosHoy = {};
+          rep.gastosHoy[nombreGasto] = Math.round(((rep.gastosHoy[nombreGasto] || 0) + entrada.monto) * 100) / 100;
         }
       });
 
