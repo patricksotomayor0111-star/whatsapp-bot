@@ -1,4 +1,4 @@
-  const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const qrcode = require('qrcode');
 const fs = require('fs');
@@ -664,8 +664,6 @@ client.on('message', async function(msg) {
   var texto = msg.body || '';
   var contacto = await msg.getContact();
   var numero = contacto.id.user || (msg.author ? msg.author : msg.from).replace(/@.*/, '').replace(/[^0-9]/g, '');
-
-  console.log('DEBUG numero:', numero, '| author:', msg.author, '| contact.id.user:', contacto.id.user, '| chat:', chat.name);
 
   if (NUMEROS_IGNORADOS.includes(numero)) return;
 
