@@ -1,4 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+  const { Client, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const qrcode = require('qrcode');
 const fs = require('fs');
@@ -56,9 +56,6 @@ const NUMEROS_IGNORADOS = [
   '34641095746','34641 09 57 46','34 641 09 57 46'
 ];
 
-const NUMEROS_DUENO = [
-  '51939610396','939610396','51939 610 396','939 610 396'
-];
 
 const GRUPOS_FOTO = [
   'CANTONES - BOX DELIVERY',
@@ -69,7 +66,8 @@ const GRUPOS_FOTO = [
 const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
-  'CARTAS RESTAURANTES': ['ingrese']
+  'CARTAS RESTAURANTES': ['ingrese'],
+  'BRUCES BOX DELIVERY': ['uno', 'hola uno por favor', 'uno por favor']
 };
 
 const KEYWORDS_GLOBALES = [
@@ -83,7 +81,7 @@ const KEYWORDS_GLOBALES = [
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
   'se acerca al local','se acerca al local en estos momentos','acercandose al local',
-  'hola uno por favor'
+  'me envias uno porfa'
 ];
 
 const KEYWORDS_EXCLUIR = [
@@ -95,7 +93,9 @@ const KEYWORDS_EXCLUIR = [
   'confirmo en unos minutos','confirmamos en unos minutos',
   'confirmo en un momento','confirmo en breve',
   '20 minutos','25 minutos','30 minutos','en 20 min','en 25 min','en 30 min',
-  '20min','25min','30min','20 min','25 min','30 min'
+  '20min','25min','30min','20 min','25 min','30 min',
+  'le aviso cuando los pedidos esten listo',
+  'les mandaremos mensaje cuando el pedido este listo'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -294,12 +294,6 @@ function getSectorDeGrupo(nombreGrupo) {
 function esGrupoGanancias(nombreGrupo) {
   return GRUPO_GANANCIAS.some(function(n) {
     return n.trim().toLowerCase() === nombreGrupo.trim().toLowerCase();
-  });
-}
-
-function esDueno(numero) {
-  return NUMEROS_DUENO.some(function(n) {
-    return n.replace(/\s/g,'') === numero.replace(/\s/g,'');
   });
 }
 
