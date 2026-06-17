@@ -693,7 +693,7 @@ app.get('/historial', function(req, res) {
     '<th style="padding:10px 8px;text-align:left;font-size:13px">Fecha / Hora</th><th style="padding:10px 8px;text-align:left;font-size:13px">Grupo</th>' +
     '<th style="padding:10px 8px;text-align:left;font-size:13px">Sector</th><th style="padding:10px 8px;text-align:left;font-size:13px">Mensaje</th>' +
     '</tr></thead><tbody>' + filas + '</tbody></table></div>' +
-    '<button onclick="if(confirm(\'Borrar historial?\'')){fetch(\'/historial\',{method:\'DELETE\'}).then(function(){location.reload()})}" style="margin-top:20px;padding:10px 20px;border-radius:10px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:14px">Borrar historial</button>' +
+    '<button onclick="if(confirm(\'Borrar historial?\')){fetch(\'/historial\',{method:\'DELETE\'}).then(function(){location.reload()})}" style="margin-top:20px;padding:10px 20px;border-radius:10px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:14px">Borrar historial</button>' +
     '</body></html>');
 });
 
@@ -766,7 +766,7 @@ app.get('/', function(req, res) {
     '<button onclick="document.getElementById(\'menu\').classList.toggle(\'hidden\')" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>' +
     '<div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">' +
     '<a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">📋 Historial <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a>' +
-    '<button onclick="if(confirm(\'¿Cerrar sesión?\'')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}" style="width:100%;padding:10px 14px;font-size:15px;text-align:left;border:none;border-radius:8px;background:white;color:#e74c3c;cursor:pointer;margin-top:4px">🚪 Cerrar sesión (escanear QR nuevo)</button></div>' +
+    '<button onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}" style="width:100%;padding:10px 14px;font-size:15px;text-align:left;border:none;border-radius:8px;background:white;color:#e74c3c;cursor:pointer;margin-top:4px">🚪 Cerrar sesión (escanear QR nuevo)</button></div>' +
     '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8">' +
     '<div>✅ <b>GANANCIAS:</b> Total hoy: ' + ganData.ganancias + ' soles</div>' +
     '<div>📉 <b>GASTOS:</b> Total hoy: -' + ganData.gastos + ' soles</div>' +
@@ -776,7 +776,6 @@ app.get('/', function(req, res) {
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' + (botActivo?'Desactivar':'Activar') + '</button></div>' +
     '<p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"' + AUTO_REPLY + '"</b> | Se apaga solo al responder</p>' +
     '<p style="color:#888;font-size:11px">📸 = fotos | ⚠️ manual = solo activacion manual | Sector OFF = bloquea todo el sector</p>' +
-    // BUSCADOR
     '<div style="margin-bottom:14px">' +
     '<input id="buscador" type="text" placeholder="🔍 Buscar grupo..." oninput="buscarGrupo(this.value)" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;box-sizing:border-box"/>' +
     '</div>' +
@@ -790,7 +789,6 @@ app.get('/', function(req, res) {
     'async function toggleBot(){await fetch("/toggle",{method:"POST"});location.reload();}' +
     'async function toggleGrupo(id){await fetch("/grupo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});location.reload();}' +
     'async function toggleSector(sector){await fetch("/sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sector:sector})});location.reload();}' +
-    // Logica del buscador
     'function buscarGrupo(q){' +
     '  var query = q.toLowerCase().trim();' +
     '  var cards = document.querySelectorAll(".sector-card");' +
