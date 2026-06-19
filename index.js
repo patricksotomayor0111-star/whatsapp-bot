@@ -53,7 +53,9 @@ const NUMEROS_IGNORADOS = [
   '51932736288','932736288','51932 736 288','932 736 288',
   '51902425988','902425988','51902 425 988','902 425 988',
   '51973155047','973155047','51973 155 047','973 155 047',
-  '34641095746','34641 09 57 46','34 641 09 57 46'
+  '34641095746','34641 09 57 46','34 641 09 57 46',
+  // ✅ Nuevo número ignorado
+  '51956640522','956640522','51956 640 522','956 640 522'
 ];
 
 const NUMEROS_DUENO = [
@@ -88,21 +90,57 @@ const KEYWORDS_GLOBALES = [
 ];
 
 const KEYWORDS_EXCLUIR = [
+  // Precios y costos
   'cotizacion','cotización','precio','cuanto','cuánto',
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
   'tarifa','tarifas','costo','cobran','cobras','cuanto cobran',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
   'cuanto es el delivery','cuanto me sale',
+  // Confirmaciones futuras
   'confirmo en unos minutos','confirmamos en unos minutos',
   'confirmo en un momento','confirmo en breve',
+  // Tiempos largos
   '20 minutos','25 minutos','30 minutos','en 20 min','en 25 min','en 30 min',
   '20min','25min','30min','20 min','25 min','30 min',
+  // Avisos internos
   'le aviso cuando los pedidos esten listo',
   'les mandaremos mensaje cuando el pedido este listo',
+  // Recoger por cuenta propia
   'aqui esta amigo puedes pasar a recojerlo',
   'aqui esta amigo puedes pasar a recogerlo',
   'puedes pasar a recojerlo',
-  'puedes pasar a recogerlo'
+  'puedes pasar a recogerlo',
+  // ✅ Nuevas exclusiones: local avisando a su propio delivery o cliente
+  'exclusivamente para delivery',
+  'ya esta listo su pedido',
+  'puede venir por su pedido',
+  'pedido pequeno','pedido pequeño',
+  'pedido grande',
+  'a que hora vienes por tu pedido',
+  'a que hora viene por su pedido',
+  'digale que envio con otro delivery',
+  'digale que envio con otro delivery con pos',
+  'tu pedido esta listo',
+  'otro delivery con pos lleva el pedido',
+  'con otro delivery con pos',
+  'con pos',
+  'viene a recoger',
+  'ya puede pasar',
+  'pedido para recoger',
+  'lo recoge',
+  'manda a recoger',
+  'va a recoger',
+  'pasa a recoger',
+  'pasar a recoger',
+  'viene por su pedido',
+  'viene a recojerlo',
+  'viene a recogerlo',
+  'su pedido esta listo',
+  'el pedido esta listo para recoger',
+  'listo para recoger',
+  'puede pasar por su pedido',
+  'ya tiene su pedido listo',
+  'pedido listo para recoger'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -122,7 +160,7 @@ const LOCALES_MAP = {
   'pen': 'Peñonetti', 'peñonetti': 'Peñonetti',
   'sha': 'Shawaburguer', 'shawaburguer': 'Shawaburguer',
   'bru': 'Bruces', 'bruces': 'Bruces',
-  'pun': 'Punto Caliente', 'punto caliente': 'Punto Caliente',
+  'kaf': 'Kaffa Coffee', 'kaffa': 'Kaffa Coffee', 'kaffa coffee': 'Kaffa Coffee',
   'fla': 'Flamangos', 'flamangos': 'Flamangos',
   'hol': 'Hola', 'hola': 'Hola',
   'the': 'The Crown', 'the crown': 'The Crown',
@@ -160,6 +198,7 @@ const LOCALES_MAP = {
   'sma': 'Smart Nutrition', 'smart': 'Smart Nutrition', 'smart nutrition': 'Smart Nutrition',
   'deb': 'Delivery Bien Pescao', 'bien pescao': 'Delivery Bien Pescao',
   'pio': 'Pio Rico', 'pio rico': 'Pio Rico',
+  'pun': 'Punto Caliente', 'punto caliente': 'Punto Caliente',
   'hua': 'Pollería El Huarango', 'huarango': 'Pollería El Huarango',
   'par': 'Paradero', 'paradero': 'Paradero',
   'bol': 'Boletas', 'boletas': 'Boletas',
@@ -182,9 +221,12 @@ const SECTORES = {
     'SHAWABURGUER BOX DELIVERY',
     'BRUCES BOX DELIVERY',
     'BRUCES BOX DELIVERY ',
-    'PUNTO CALIENTE - BOX DELIVERY',
     'FLAMANGOS - BOX DELIVERY',
-    'FLAMANGOS- BOX DELIVERY'
+    'FLAMANGOS- BOX DELIVERY',
+    // ✅ Nuevo en PTB
+    'KAFFA COFFEE - BOX DELIVERY',
+    'KAFFA COFFEE- BOX DELIVERY',
+    'KAFFA COFFEE BOX DELIVERY'
   ],
   'Sector San José': [
     'Hola',
@@ -211,7 +253,6 @@ const SECTORES = {
     'MISTER JUGO BOX DELIVERY ',
     'CANTONES - BOX DELIVERY',
     'PIM PAM POLLO BOX DELIVERY',
-    'Rincón del sabor BOX DELIVERY',
     'CHIFA CHANG KEE PEDIDOS',
     'MONO ALITAS BOX DELIVERY',
     'KANASTAS BOX DELIVERY',
@@ -242,7 +283,10 @@ const SECTORES = {
     'PIO RICO BOX DELIVERY ',
     'POLLERÍA EL HUARANGO - BOX DELIVERY',
     'Paradero ',
-    'Paradero'
+    'Paradero',
+    // ✅ Movidos a Comodín
+    'Rincón del sabor BOX DELIVERY',
+    'PUNTO CALIENTE - BOX DELIVERY'
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
