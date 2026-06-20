@@ -14,6 +14,7 @@ const REPORTE_FILE = '/tmp/reporte_semanal.json';
 const NUMEROS_IGNORADOS = [
   '272984178720993',
   '51942535017','942535017','51942 535 017','942 535 017',
+  '51952696865','952696865','51952 696 865','952 696 865',
   '51960186738','960186738','51960 186 738','960 186 738',
   '51946043902','946043902','51946 043 902','946 043 902',
   '51902955167','902955167','51902 955 167','902 955 167',
@@ -144,6 +145,11 @@ const KEYWORDS_EXCLUIR = [
   'puede pasar por su pedido',
   'ya tiene su pedido listo',
   'lo enviamos con otro delivery',
+  'buenas tardes por si sale algun pedido',
+  'por si sale otro pedido',
+  'por si sale otro',
+  'buenas noches por si sale algun pedido',
+  'buenos dias por si sale algun pedido',
   'ya puedes recoger tu pedido',
   'pedido listo para recoger'
 ];
