@@ -54,7 +54,6 @@ const NUMEROS_IGNORADOS = [
   '51902425988','902425988','51902 425 988','902 425 988',
   '51973155047','973155047','51973 155 047','973 155 047',
   '34641095746','34641 09 57 46','34 641 09 57 46',
-  // ✅ Nuevo número ignorado
   '51956640522','956640522','51956 640 522','956 640 522'
 ];
 
@@ -71,8 +70,18 @@ const GRUPOS_FOTO = [
 const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
-  'CARTAS RESTAURANTES': ['ingrese'],
-  'BRUCES BOX DELIVERY': ['uno', 'hola uno por favor', 'uno por favor']
+  'CARTAS RESTAURANTES': [
+    'ingrese',
+    'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda',
+    'uno a huacachina','uno para huacachina'
+  ],
+  'BRUCES BOX DELIVERY': ['uno', 'hola uno por favor', 'uno por favor'],
+  'LA PARRILLERIA BOX DELIVERY': [
+    'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
+  ],
+  'MUELLE BOX DELIVERY': [
+    'uno a huacachina','uno para huacachina'
+  ]
 };
 
 const KEYWORDS_GLOBALES = [
@@ -90,27 +99,21 @@ const KEYWORDS_GLOBALES = [
 ];
 
 const KEYWORDS_EXCLUIR = [
-  // Precios y costos
   'cotizacion','cotización','precio','cuanto','cuánto',
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
   'tarifa','tarifas','costo','cobran','cobras','cuanto cobran',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
   'cuanto es el delivery','cuanto me sale',
-  // Confirmaciones futuras
   'confirmo en unos minutos','confirmamos en unos minutos',
   'confirmo en un momento','confirmo en breve',
-  // Tiempos largos
   '20 minutos','25 minutos','30 minutos','en 20 min','en 25 min','en 30 min',
   '20min','25min','30min','20 min','25 min','30 min',
-  // Avisos internos
   'le aviso cuando los pedidos esten listo',
   'les mandaremos mensaje cuando el pedido este listo',
-  // Recoger por cuenta propia
   'aqui esta amigo puedes pasar a recojerlo',
   'aqui esta amigo puedes pasar a recogerlo',
   'puedes pasar a recojerlo',
   'puedes pasar a recogerlo',
-  // ✅ Nuevas exclusiones: local avisando a su propio delivery o cliente
   'exclusivamente para delivery',
   'ya esta listo su pedido',
   'puede venir por su pedido',
@@ -140,6 +143,8 @@ const KEYWORDS_EXCLUIR = [
   'listo para recoger',
   'puede pasar por su pedido',
   'ya tiene su pedido listo',
+  'lo enviamos con otro delivery',
+  'ya puedes recoger tu pedido',
   'pedido listo para recoger'
 ];
 
@@ -162,6 +167,7 @@ const LOCALES_MAP = {
   'bru': 'Bruces', 'bruces': 'Bruces',
   'kaf': 'Kaffa Coffee', 'kaffa': 'Kaffa Coffee', 'kaffa coffee': 'Kaffa Coffee',
   'fla': 'Flamangos', 'flamangos': 'Flamangos',
+  'mue': 'Muelle', 'muelle': 'Muelle',
   'hol': 'Hola', 'hola': 'Hola',
   'the': 'The Crown', 'the crown': 'The Crown',
   'har': 'Harvest', 'harvest': 'Harvest',
@@ -199,6 +205,8 @@ const LOCALES_MAP = {
   'deb': 'Delivery Bien Pescao', 'bien pescao': 'Delivery Bien Pescao',
   'pio': 'Pio Rico', 'pio rico': 'Pio Rico',
   'pun': 'Punto Caliente', 'punto caliente': 'Punto Caliente',
+  'par2': 'La Parrilleria', 'parrilleria': 'La Parrilleria', 'la parrilleria': 'La Parrilleria',
+  'fid': 'Fidel', 'fidel': 'Fidel',
   'hua': 'Pollería El Huarango', 'huarango': 'Pollería El Huarango',
   'par': 'Paradero', 'paradero': 'Paradero',
   'bol': 'Boletas', 'boletas': 'Boletas',
@@ -223,10 +231,11 @@ const SECTORES = {
     'BRUCES BOX DELIVERY ',
     'FLAMANGOS - BOX DELIVERY',
     'FLAMANGOS- BOX DELIVERY',
-    // ✅ Nuevo en PTB
     'KAFFA COFFEE - BOX DELIVERY',
     'KAFFA COFFEE- BOX DELIVERY',
-    'KAFFA COFFEE BOX DELIVERY'
+    'KAFFA COFFEE BOX DELIVERY',
+    'MUELLE BOX DELIVERY',
+    'MUELLE BOX DELIVERY '
   ],
   'Sector San José': [
     'Hola',
@@ -264,7 +273,9 @@ const SECTORES = {
     'Boletas locales',
     'Don Alejandro -BOX DELYBERY',
     'EL BORGO BOX DELIVERY',
-    'OCTAVIA LA ANGOSTURA - BOX DELIVERY'
+    'OCTAVIA LA ANGOSTURA - BOX DELIVERY',
+    'FIDEL - BOX DELIVERY ICA',
+    'FIDEL - BOX DELIVERY ICA '
   ],
   'Sector Comodin': [
     'ARTIA PASTELERIA (dribox)',
@@ -284,9 +295,10 @@ const SECTORES = {
     'POLLERÍA EL HUARANGO - BOX DELIVERY',
     'Paradero ',
     'Paradero',
-    // ✅ Movidos a Comodín
     'Rincón del sabor BOX DELIVERY',
-    'PUNTO CALIENTE - BOX DELIVERY'
+    'PUNTO CALIENTE - BOX DELIVERY',
+    'LA PARRILLERIA BOX DELIVERY',
+    'LA PARRILLERIA BOX DELIVERY '
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
@@ -686,17 +698,21 @@ client.on('message', async function(msg) {
   if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) { return chat.name.toLowerCase().includes(n.toLowerCase()); });
   if (tieneExclusion(texto)) return;
+
   var tieneKeyword = KEYWORDS_GLOBALES.find(function(k) { return similarEnough(texto, k); });
   if (!tieneKeyword) {
     var gruposEsp = Object.keys(KEYWORDS_ESPECIALES);
     for (var i = 0; i < gruposEsp.length; i++) {
       var nombreGrupo = gruposEsp[i];
-      if (chat.name.toLowerCase().includes(nombreGrupo.toLowerCase())) {
-        tieneKeyword = KEYWORDS_ESPECIALES[nombreGrupo].find(function(k) { return similarEnough(texto, k); });
+      if (chat.name.trim().toLowerCase() === nombreGrupo.trim().toLowerCase()) {
+        tieneKeyword = KEYWORDS_ESPECIALES[nombreGrupo].find(function(k) {
+          return normalizar(texto) === normalizar(k) || normalizar(texto).includes(normalizar(k));
+        });
         if (tieneKeyword) break;
       }
     }
   }
+
   if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
   var ahora = Date.now();
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
