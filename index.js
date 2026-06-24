@@ -316,6 +316,10 @@ const SECTORES = {
 
 const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
+function getHoraPeru() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+}
+
 function normalizar(texto) {
   return texto.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -387,12 +391,12 @@ function loadGanancias() {
   try {
     if (fs.existsSync(GANANCIAS_FILE)) {
       var data = JSON.parse(fs.readFileSync(GANANCIAS_FILE, 'utf8'));
-      var hoy = new Date().toLocaleDateString('es-PE');
+      var hoy = getHoraPeru().toLocaleDateString('es-PE');
       if (data.fecha !== hoy) return { fecha: hoy, ganancias: 0, gastos: 0 };
       return data;
     }
   } catch(e) {}
-  return { fecha: new Date().toLocaleDateString('es-PE'), ganancias: 0, gastos: 0 };
+  return { fecha: getHoraPeru().toLocaleDateString('es-PE'), ganancias: 0, gastos: 0 };
 }
 
 function saveGanancias(data) {
@@ -413,7 +417,7 @@ function saveReporte(data) {
 }
 
 function getFechaLunesActual() {
-  var hoy = new Date();
+  var hoy = getHoraPeru();
   var dia = hoy.getDay();
   var diff = (dia === 0) ? -6 : 1 - dia;
   var lunes = new Date(hoy);
@@ -544,7 +548,7 @@ function enviarNotificacion(grupo, hora) {
 
 setInterval(async function() {
   if (!isReady) return;
-  var ahora = new Date();
+  var ahora = getHoraPeru();
   var esDomingo = ahora.getDay() === 0;
   var esHora2359 = ahora.getHours() === 23 && ahora.getMinutes() === 59;
 
@@ -659,7 +663,7 @@ client.on('message', async function(msg) {
   if (esGrupoGanancias(chat.name)) {
     if (msg.fromMe) return;
     if (texto.trim().toLowerCase() === 'reset') {
-      var hoyReset = new Date().toLocaleDateString('es-PE');
+      var hoyReset = getHoraPeru().toLocaleDateString('es-PE');
       saveGanancias({ fecha: hoyReset, ganancias: 0, gastos: 0 });
       await chat.sendMessage('✅ Listo, nuevo día\n✅ GANANCIAS: Total hoy: 0 soles\n📉 GASTOS: Total hoy: -0 soles\nTOTAL LIQUIDO 🤑: 0 soles');
       return;
@@ -667,7 +671,7 @@ client.on('message', async function(msg) {
     var entradas = extraerEntradas(texto);
     if (entradas.length > 0) {
       var ganData = loadGanancias();
-      var hoy = new Date().toLocaleDateString('es-PE');
+      var hoy = getHoraPeru().toLocaleDateString('es-PE');
       if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
       var rep = loadReporte();
       var lunesActual = getFechaLunesActual();
@@ -724,7 +728,7 @@ client.on('message', async function(msg) {
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
   lastReply[chatId] = ahora;
   await msg.reply(AUTO_REPLY);
-  var now = new Date();
+  var now = getHoraPeru();
   HISTORIAL.unshift({ grupo: chat.name, sector: sectorDelGrupo, mensaje: esFoto ? '📸 Foto' : texto.substring(0, 80), fecha: now.toLocaleDateString('es-PE'), hora: now.toLocaleTimeString('es-PE') });
   saveHistorial();
   enviarNotificacion(chat.name, now.toLocaleTimeString('es-PE'));
@@ -818,7 +822,7 @@ app.get('/', function(req, res) {
   });
 
   var ganData = loadGanancias();
-  var hoy = new Date().toLocaleDateString('es-PE');
+  var hoy = getHoraPeru().toLocaleDateString('es-PE');
   if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
   var totalLiquido = Math.round((ganData.ganancias - ganData.gastos) * 100) / 100;
   var ganColor = totalLiquido >= 0 ? '#e8f5e9' : '#fdecea';
