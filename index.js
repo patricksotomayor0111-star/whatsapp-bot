@@ -82,6 +82,12 @@ const KEYWORDS_ESPECIALES = {
   ],
   'MUELLE BOX DELIVERY': [
     'uno a huacachina','uno para huacachina'
+  ],
+  'McGrill Restaurante BOX DELIVERY': [
+    'hola me envias uno','alguien disponible','me mandas uno','alguien cerca',
+    'alguien disponible en 10min','alguien disponible en 5min',
+    'me envia uno porfa','enviame uno porfa','enviame uno',
+    'hola me envias uno','manda uno'
   ]
 };
 
@@ -96,7 +102,7 @@ const KEYWORDS_GLOBALES = [
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
   'se acerca al local','se acerca al local en estos momentos','acercandose al local',
-  'me envias uno porfa'
+  'me envias uno porfa','delivery por favor'
 ];
 
 const KEYWORDS_EXCLUIR = [
@@ -215,6 +221,7 @@ const LOCALES_MAP = {
   'fid': 'Fidel', 'fidel': 'Fidel',
   'hua': 'Pollería El Huarango', 'huarango': 'Pollería El Huarango',
   'par': 'Paradero', 'paradero': 'Paradero',
+  'sel': 'Selah Coffe', 'selah': 'Selah Coffe', 'selah coffe': 'Selah Coffe',
   'bol': 'Boletas', 'boletas': 'Boletas',
   'don': 'Don Alejandro', 'don alejandro': 'Don Alejandro',
   'elb': 'El Borgo', 'el borgo': 'El Borgo',
@@ -304,7 +311,9 @@ const SECTORES = {
     'Rincón del sabor BOX DELIVERY',
     'PUNTO CALIENTE - BOX DELIVERY',
     'LA PARRILLERIA BOX DELIVERY',
-    'LA PARRILLERIA BOX DELIVERY '
+    'LA PARRILLERIA BOX DELIVERY ',
+    'Selah Coffe BOX DELIVERY',
+    'Selah Coffe BOX DELIVERY '
   ],
   'Sector X (otros)': [
     'DRIBOX 🏍️',
