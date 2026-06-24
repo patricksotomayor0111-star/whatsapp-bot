@@ -98,11 +98,13 @@ const KEYWORDS_GLOBALES = [
   '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
   'tenemos pedido','box','un box','un motorizado','venir','pedidi',
   'movilidad','movil','viniendo','moto','unidad',
-  'vengan','venga','delivery','confirmado','recoger',
+  'vengan','venga','confirmado','recoger',
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
   'se acerca al local','se acerca al local en estos momentos','acercandose al local',
-  'me envias uno porfa','delivery por favor'
+  'me envias uno porfa','delivery por favor','delivery x favor',
+  'delivery porfavor','necesito delivery','manden delivery',
+  'un delivery por favor'
 ];
 
 const KEYWORDS_EXCLUIR = [
@@ -157,7 +159,10 @@ const KEYWORDS_EXCLUIR = [
   'buenas noches por si sale algun pedido',
   'buenos dias por si sale algun pedido',
   'ya puedes recoger tu pedido',
-  'pedido listo para recoger'
+  'pedido listo para recoger',
+  // ✅ Nuevas exclusiones para evitar falsos positivos de lugares
+  'minsa','en minsa','minedu','en minedu','essalud','en essalud',
+  'municipalidad','en municipalidad','banco','en banco','mercado','en mercado'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -335,13 +340,19 @@ function normalizar(texto) {
     .replace(/[^a-z0-9 ]/g, '');
 }
 
+// ✅ Función mejorada: sin tolerancia de error para palabras cortas de 6 letras o menos
 function similarEnough(texto, keyword) {
   var t = normalizar(texto);
   var k = normalizar(keyword);
   if (t.includes(k)) return true;
+  // Si la keyword es una sola palabra de 6 letras o menos, solo match exacto (sin tolerancia)
+  if (!k.includes(' ') && k.length <= 6) return false;
   var words = k.split(' ');
   return words.every(function(w) {
     if (w.length <= 3) return t.includes(w);
+    // Para palabras de 4-5 letras exigir match exacto
+    if (w.length <= 5) return t.includes(w);
+    // Solo permitir 1 error en palabras de 6+ letras
     for (var i = 0; i <= t.length - w.length + 1; i++) {
       var sub = t.substr(i, w.length + 1);
       var diff = 0;
