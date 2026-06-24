@@ -100,7 +100,7 @@ const KEYWORDS_GLOBALES = [
   'movilidad','movil','viniendo','moto','unidad',
   'vengan','venga','confirmado','recoger',
   'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
-  'ptb mega','pds a ptb','pds a mega','ptb a parcona',
+  'ptb mega','pds a ptb','pds a mega','ptb a parcona','un box por favor',
   'se acerca al local','se acerca al local en estos momentos','acercandose al local',
   'me envias uno porfa','delivery por favor','delivery x favor',
   'delivery porfavor','necesito delivery','manden delivery',
