@@ -124,7 +124,7 @@ const KEYWORDS_EXCLUIR = [
   'puedes pasar a recojerlo','etapa','manzana','mz','lote','lt','urbanizacion',
   'puedes pasar a recogerlo','urb','jr.','jirón','av.','avenida','calle','pasaje',
   'exclusivamente para delivery',
-  'ya esta listo su pedido',
+  'ya esta listo su pedido','para','puerta','los','las',
   'puede venir por su pedido',
   'pedido pequeno','pedido pequeño',
   'pedido grande',
