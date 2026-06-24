@@ -160,7 +160,6 @@ const KEYWORDS_EXCLUIR = [
   'buenos dias por si sale algun pedido',
   'ya puedes recoger tu pedido',
   'pedido listo para recoger',
-  // ✅ Nuevas exclusiones para evitar falsos positivos de lugares
   'minsa','en minsa','minedu','en minedu','essalud','en essalud',
   'municipalidad','en municipalidad','banco','en banco','mercado','en mercado'
 ];
@@ -340,19 +339,15 @@ function normalizar(texto) {
     .replace(/[^a-z0-9 ]/g, '');
 }
 
-// ✅ Función mejorada: sin tolerancia de error para palabras cortas de 6 letras o menos
 function similarEnough(texto, keyword) {
   var t = normalizar(texto);
   var k = normalizar(keyword);
   if (t.includes(k)) return true;
-  // Si la keyword es una sola palabra de 6 letras o menos, solo match exacto (sin tolerancia)
   if (!k.includes(' ') && k.length <= 6) return false;
   var words = k.split(' ');
   return words.every(function(w) {
     if (w.length <= 3) return t.includes(w);
-    // Para palabras de 4-5 letras exigir match exacto
     if (w.length <= 5) return t.includes(w);
-    // Solo permitir 1 error en palabras de 6+ letras
     for (var i = 0; i <= t.length - w.length + 1; i++) {
       var sub = t.substr(i, w.length + 1);
       var diff = 0;
@@ -624,9 +619,13 @@ setInterval(async function() {
   }
 }, 60 * 1000);
 
+// ✅ FIX 1: protocolTimeout aumentado a 60 segundos
 var client = new Client({
   authStrategy: new LocalAuth(),
-  puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+  puppeteer: {
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    protocolTimeout: 60000
+  }
 });
 
 client.on('qr', function(qr) { qrCodeData = qr; isReady = false; });
@@ -642,30 +641,41 @@ client.on('disconnected', function(reason) {
   setTimeout(function() { try { client.initialize(); } catch(e) { process.exit(0); } }, 3000);
 });
 
+// ✅ FIX 2: delay de 5s antes de getChats() + FIX 3: try/catch para no crashear
 client.on('ready', async function() {
   isReady = true; qrCodeData = '';
-  var chats = await client.getChats();
-  var grupos = chats.filter(function(c) { return c.isGroup; });
-  GRUPOS_CACHE = grupos.map(function(g) { return { id: g.id._serialized, name: g.name }; });
-  GRUPOS_CACHE.sort(function(a, b) {
-    var ia = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === a.name.trim().toLowerCase(); });
-    var ib = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === b.name.trim().toLowerCase(); });
-    if (ia === -1 && ib === -1) return 0;
-    if (ia === -1) return 1; if (ib === -1) return -1;
-    return ia - ib;
-  });
-  GRUPOS_CACHE.forEach(function(g) {
-    var esInactivo = SIEMPRE_INACTIVOS.some(function(n) { return g.name.toLowerCase().includes(n.toLowerCase()); });
-    var esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
-    var esGanancias = esGrupoGanancias(g.name);
-    if (esInactivo || (esSectorX && !esGanancias)) {
-      GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(function(id) { return id !== g.id; });
-      return;
-    }
-    if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
-  });
-  saveConfig();
-  console.log('Listo');
+  console.log('WhatsApp listo, esperando 5s antes de cargar chats...');
+
+  // Esperar 5 segundos para que Puppeteer se estabilice
+  await new Promise(function(resolve) { setTimeout(resolve, 5000); });
+
+  try {
+    var chats = await client.getChats();
+    var grupos = chats.filter(function(c) { return c.isGroup; });
+    GRUPOS_CACHE = grupos.map(function(g) { return { id: g.id._serialized, name: g.name }; });
+    GRUPOS_CACHE.sort(function(a, b) {
+      var ia = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === a.name.trim().toLowerCase(); });
+      var ib = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === b.name.trim().toLowerCase(); });
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1; if (ib === -1) return -1;
+      return ia - ib;
+    });
+    GRUPOS_CACHE.forEach(function(g) {
+      var esInactivo = SIEMPRE_INACTIVOS.some(function(n) { return g.name.toLowerCase().includes(n.toLowerCase()); });
+      var esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
+      var esGanancias = esGrupoGanancias(g.name);
+      if (esInactivo || (esSectorX && !esGanancias)) {
+        GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(function(id) { return id !== g.id; });
+        return;
+      }
+      if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
+    });
+    saveConfig();
+    console.log('Listo - ' + grupos.length + ' grupos cargados');
+  } catch(e) {
+    console.log('Error cargando chats (se reintentará en el próximo ciclo):', e.message);
+    // El bot sigue funcionando aunque falle la carga inicial de grupos
+  }
 });
 
 client.on('message', async function(msg) {
