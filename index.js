@@ -45,13 +45,22 @@ const GRUPOS_FOTO = [
   'CARTAS RESTAURANTES'
 ];
 
-// Grupos que tienen frases exclusivas — solo responden a estas y nada más
-// McGrill y Cartas Restaurantes usan la misma lista de frases especiales
+// ============================================================
+// GRUPOS PRIORITARIOS — revisan sus keywords especiales ANTES
+// de aplicar exclusiones globales. Útil para frases con "?" u
+// otras palabras que normalmente serían bloqueadas globalmente.
+// ============================================================
+const GRUPOS_PRIORITARIOS = [
+  'mcgrill restaurante box delivery',
+  'cartas restaurantes',
+  'bochitos box delivery'
+];
+
+// Frases compartidas entre McGrill y Cartas Restaurantes
 const FRASES_MCGRILL_CARTAS = [
   'hola me envias uno','me mandas uno','alguien cerca',
   'alguien disponible en 10min','alguien disponible en 5min',
   'me envia uno porfa','enviame uno porfa','enviame uno','manda uno',
-  // ✅ alguien disponible permitido SOLO en estos grupos
   'alguien disponible'
 ];
 
@@ -68,12 +77,21 @@ const KEYWORDS_ESPECIALES = {
     'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
   ],
   'MUELLE BOX DELIVERY': ['uno a huacachina','uno para huacachina'],
-  'McGrill Restaurante BOX DELIVERY': [...FRASES_MCGRILL_CARTAS]
+  'McGrill Restaurante BOX DELIVERY': [...FRASES_MCGRILL_CARTAS],
+  // ✅ Crown: frase especial propia
+  'THE CROWN BOX DELIVERY': [
+    'disculpe para que puedan venir por el delivery'
+  ],
+  // ✅ Bochitos: frase con "?" — es grupo prioritario para saltarse exclusión global del "?"
+  'BOCHITOS BOX DELIVERY': [
+    'buenas tardes podrian enviarme un delivery porfa?'
+  ]
 };
 
 // ============================================================
 // 🔴 LISTA NEGATIVA — si el mensaje contiene CUALQUIERA de estas
-// frases o palabras, el bot NO responde sin importar qué más diga
+// frases o palabras, el bot NO responde sin importar qué más diga.
+// EXCEPCIÓN: grupos prioritarios revisan sus keywords especiales primero.
 // ============================================================
 const KEYWORDS_EXCLUIR = [
   // Consultas de precio
@@ -119,7 +137,7 @@ const KEYWORDS_EXCLUIR = [
   'buenos dias por si sale','por si sale algun pedido',
   'por si sale otro pedido','por si sale otro',
 
-  // Lugares / direcciones (para no confundir con "para el local")
+  // Lugares / direcciones
   'emapica','municipalidad','hospital','banco','essalud','minsa',
   'universidad','iglesia','santo domingo','san francisco','san jose',
   'minedu','ministerio','comisaria','prefecture','prefectura',
@@ -130,19 +148,16 @@ const KEYWORDS_EXCLUIR = [
   // Signo de pregunta (casi siempre es consulta)
   '?',
 
-  // Otros falsos positivos conocidos
+  // Otros falsos positivos
   '+51','del mas cercano','exclusivamente para delivery',
   'aqui esta amigo','puede recogerlo','ya puedes pasar',
   'ya puede recoger',
-  // ✅ Nuevas exclusiones
   'compra',
-  // alguien disponible → excluido globalmente (solo funciona en McGrill y Cartas via KEYWORDS_ESPECIALES)
   'alguien disponible'
 ];
 
 // ============================================================
-// 🟢 LISTA POSITIVA — palabras/frases que activan el bot
-// Se verifican SOLO si el mensaje no tiene ninguna palabra negativa
+// 🟢 LISTA POSITIVA — activan el bot si no hay palabras negativas
 // ============================================================
 const KEYWORDS_GLOBALES = [
   // Vehículo / motorizado
@@ -175,7 +190,7 @@ const KEYWORDS_GLOBALES = [
   'necesito delivery','manden delivery','me envia un delivery',
   'me envias un delivery','puede mandar un delivery',
   'enviar un delivery','delivery a tienda','delivery al local',
-  'necesito un delivery','delivery por favor',
+  'necesito un delivery',
   'me envia uno porfa','me envias uno','puede mandar uno',
   'me podria enviar','me podrias enviar','podria enviar',
   'por favor me envia','por favor envien',
@@ -184,7 +199,6 @@ const KEYWORDS_GLOBALES = [
   'venir al local','pasar al local','acerquese al local',
   'alguien puede acercarse',
   'alguien cerca','hay alguien','viniendo','recoger pedido',
-  // ✅ Nueva frase positiva: cliente avisa que el pedido está listo para recoger por el motorizado
   'el pedido esta listo pueden pasar por el',
   'pueden pasar por el pedido','pasen por el pedido'
 ];
@@ -323,10 +337,6 @@ function normalizar(texto) {
     .trim();
 }
 
-// ============================================================
-// 🔴 Verifica si el mensaje tiene alguna palabra/frase negativa
-// Si encuentra UNA sola → el bot NO responde
-// ============================================================
 function tieneExclusion(texto) {
   var t = normalizar(texto);
   return KEYWORDS_EXCLUIR.some(function(k) {
@@ -334,14 +344,20 @@ function tieneExclusion(texto) {
   });
 }
 
-// ============================================================
-// 🟢 Verifica si el mensaje tiene alguna palabra/frase positiva
-// Se llama SOLO si tieneExclusion() devolvió false
-// ============================================================
 function tieneKeywordPositiva(texto) {
   var t = normalizar(texto);
   return KEYWORDS_GLOBALES.some(function(k) {
     return t.includes(normalizar(k));
+  });
+}
+
+function buscarKeywordEspecial(texto, nombreGrupo) {
+  var lista = KEYWORDS_ESPECIALES[nombreGrupo];
+  if (!lista) return false;
+  var t = normalizar(texto);
+  return lista.some(function(k) {
+    var kn = normalizar(k);
+    return t === kn || t.includes(kn);
   });
 }
 
@@ -589,7 +605,6 @@ setInterval(async function() {
   }
 }, 60 * 1000);
 
-// ✅ FIX: protocolTimeout aumentado
 var client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
@@ -611,7 +626,6 @@ client.on('disconnected', function(reason) {
   setTimeout(function() { try { client.initialize(); } catch(e) { process.exit(0); } }, 3000);
 });
 
-// ✅ FIX: delay + try/catch en ready
 client.on('ready', async function() {
   isReady = true; qrCodeData = '';
   console.log('WhatsApp listo, esperando 5s...');
@@ -703,67 +717,53 @@ client.on('message', async function(msg) {
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
   if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) { return chat.name.toLowerCase().includes(n.toLowerCase()); });
+  var nombreGrupoNorm = chat.name.trim().toLowerCase();
+  var esPrioritario = GRUPOS_PRIORITARIOS.includes(nombreGrupoNorm);
 
   // ============================================================
-  // 🧠 LÓGICA: Primero revisar keywords especiales del grupo
-  // McGrill y Cartas Restaurantes tienen prioridad — si el mensaje
-  // coincide con su lista especial, responde sin importar exclusiones globales
+  // 🧠 LÓGICA PRINCIPAL
+  //
+  // GRUPOS PRIORITARIOS (McGrill, Cartas, Bochitos):
+  //   → Revisan primero sus keywords especiales
+  //   → Si coincide: responden SIN importar exclusiones globales
+  //   → Si no coincide con especiales: revisan globales normalmente
+  //
+  // RESTO DE GRUPOS:
+  //   → Si tiene exclusión global: NO responden
+  //   → Si no tiene exclusión: buscan keyword positiva global
+  //   → Si no hay global: buscan keyword especial del grupo
   // ============================================================
-  var esGrupoEspecialPrioritario = [
-    'mcgrill restaurante box delivery',
-    'cartas restaurantes'
-  ].includes(chat.name.trim().toLowerCase());
 
   var tieneKeyword = false;
 
-  if (esGrupoEspecialPrioritario) {
-    // Para estos grupos: buscar primero en sus keywords especiales
-    // Si coincide → responder aunque haya palabras excluidas globales
-    var gruposEsp = Object.keys(KEYWORDS_ESPECIALES);
-    for (var i = 0; i < gruposEsp.length; i++) {
-      var nombreGrupo = gruposEsp[i];
-      if (chat.name.trim().toLowerCase() === nombreGrupo.trim().toLowerCase()) {
-        var encontrado = KEYWORDS_ESPECIALES[nombreGrupo].find(function(k) {
-          var t = normalizar(texto);
-          var kn = normalizar(k);
-          return t === kn || t.includes(kn);
-        });
-        if (encontrado) { tieneKeyword = true; break; }
-      }
+  if (esPrioritario) {
+    // Paso 1: verificar keywords especiales (ignoran exclusiones globales)
+    if (buscarKeywordEspecial(texto, chat.name.trim())) {
+      tieneKeyword = true;
+    } else {
+      // Paso 2: si no matcheó especial, aplicar lógica normal
+      if (tieneExclusion(texto)) return;
+      tieneKeyword = tieneKeywordPositiva(texto);
     }
-    // Si no coincidió con ninguna especial → no responder (estos grupos son estrictos)
-    if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
   } else {
-    // Para el resto de grupos: aplicar lógica normal
-    // 1. Si tiene exclusión global → no responder
+    // Lógica normal para el resto de grupos
     if (tieneExclusion(texto)) return;
-
-    // 2. Buscar keyword positiva global
     tieneKeyword = tieneKeywordPositiva(texto);
-
-    // 3. Si no encontró global, revisar keywords especiales del grupo
     if (!tieneKeyword) {
-      var gruposEsp2 = Object.keys(KEYWORDS_ESPECIALES);
-      for (var j = 0; j < gruposEsp2.length; j++) {
-        var nombreGrupo2 = gruposEsp2[j];
-        if (chat.name.trim().toLowerCase() === nombreGrupo2.trim().toLowerCase()) {
-          var encontrado2 = KEYWORDS_ESPECIALES[nombreGrupo2].find(function(k) {
-            var t = normalizar(texto);
-            var kn = normalizar(k);
-            return t === kn || t.includes(kn);
-          });
-          if (encontrado2) { tieneKeyword = true; break; }
-        }
-      }
+      tieneKeyword = buscarKeywordEspecial(texto, chat.name.trim());
     }
-
-    if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
   }
+
+  if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
 
   var ahora = Date.now();
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
   lastReply[chatId] = ahora;
+
+  // ✅ Delay de 500ms antes de responder
+  await new Promise(function(resolve) { setTimeout(resolve, 500); });
   await msg.reply(AUTO_REPLY);
+
   var now = getHoraPeru();
   HISTORIAL.unshift({
     grupo: chat.name, sector: sectorDelGrupo,
