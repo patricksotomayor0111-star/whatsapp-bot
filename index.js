@@ -760,8 +760,8 @@ client.on('message', async function(msg) {
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
   lastReply[chatId] = ahora;
 
-  // ✅ Delay de 500ms antes de responder
-  await new Promise(function(resolve) { setTimeout(resolve, 500); });
+  // ✅ Delay de 700ms antes de responder
+  await new Promise(function(resolve) { setTimeout(resolve, 700); });
   await msg.reply(AUTO_REPLY);
 
   var now = getHoraPeru();
