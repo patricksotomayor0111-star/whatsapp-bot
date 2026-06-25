@@ -45,18 +45,30 @@ const GRUPOS_FOTO = [
   'CARTAS RESTAURANTES'
 ];
 
+// Grupos que tienen frases exclusivas — solo responden a estas y nada más
+// McGrill y Cartas Restaurantes usan la misma lista de frases especiales
+const FRASES_MCGRILL_CARTAS = [
+  'hola me envias uno','me mandas uno','alguien cerca',
+  'alguien disponible en 10min','alguien disponible en 5min',
+  'me envia uno porfa','enviame uno porfa','enviame uno','manda uno',
+  // ✅ alguien disponible permitido SOLO en estos grupos
+  'alguien disponible'
+];
+
 const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
   'CARTAS RESTAURANTES': [
     'ingrese','a tienda por favor','a tienda','tienda por favor',
-    'manden a tienda','uno a tienda','uno a huacachina','uno para huacachina'
+    'manden a tienda','uno a tienda','uno a huacachina','uno para huacachina',
+    ...FRASES_MCGRILL_CARTAS
   ],
   'BRUCES BOX DELIVERY': ['uno','hola uno por favor','uno por favor'],
   'LA PARRILLERIA BOX DELIVERY': [
     'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
   ],
-  'MUELLE BOX DELIVERY': ['uno a huacachina','uno para huacachina']
+  'MUELLE BOX DELIVERY': ['uno a huacachina','uno para huacachina'],
+  'McGrill Restaurante BOX DELIVERY': [...FRASES_MCGRILL_CARTAS]
 };
 
 // ============================================================
@@ -121,7 +133,11 @@ const KEYWORDS_EXCLUIR = [
   // Otros falsos positivos conocidos
   '+51','del mas cercano','exclusivamente para delivery',
   'aqui esta amigo','puede recogerlo','ya puedes pasar',
-  'ya puede recoger'
+  'ya puede recoger',
+  // ✅ Nuevas exclusiones
+  'compra',
+  // alguien disponible → excluido globalmente (solo funciona en McGrill y Cartas via KEYWORDS_ESPECIALES)
+  'alguien disponible'
 ];
 
 // ============================================================
@@ -166,8 +182,11 @@ const KEYWORDS_GLOBALES = [
 
   // Frases directas comunes de locales
   'venir al local','pasar al local','acerquese al local',
-  'alguien puede acercarse','alguien disponible',
-  'alguien cerca','hay alguien','viniendo','recoger pedido'
+  'alguien puede acercarse',
+  'alguien cerca','hay alguien','viniendo','recoger pedido',
+  // ✅ Nueva frase positiva: cliente avisa que el pedido está listo para recoger por el motorizado
+  'el pedido esta listo pueden pasar por el',
+  'pueden pasar por el pedido','pasen por el pedido'
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -686,16 +705,20 @@ client.on('message', async function(msg) {
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) { return chat.name.toLowerCase().includes(n.toLowerCase()); });
 
   // ============================================================
-  // 🧠 NUEVA LÓGICA: Primero excluir, luego buscar positivo
-  // Si el mensaje tiene CUALQUIER palabra negativa → ignorar
-  // Si no tiene negativas → buscar si tiene alguna positiva
+  // 🧠 LÓGICA: Primero revisar keywords especiales del grupo
+  // McGrill y Cartas Restaurantes tienen prioridad — si el mensaje
+  // coincide con su lista especial, responde sin importar exclusiones globales
   // ============================================================
-  if (tieneExclusion(texto)) return;
+  var esGrupoEspecialPrioritario = [
+    'mcgrill restaurante box delivery',
+    'cartas restaurantes'
+  ].includes(chat.name.trim().toLowerCase());
 
-  var tieneKeyword = tieneKeywordPositiva(texto);
+  var tieneKeyword = false;
 
-  // Si no encontró keyword global, revisar keywords especiales del grupo
-  if (!tieneKeyword) {
+  if (esGrupoEspecialPrioritario) {
+    // Para estos grupos: buscar primero en sus keywords especiales
+    // Si coincide → responder aunque haya palabras excluidas globales
     var gruposEsp = Object.keys(KEYWORDS_ESPECIALES);
     for (var i = 0; i < gruposEsp.length; i++) {
       var nombreGrupo = gruposEsp[i];
@@ -708,9 +731,34 @@ client.on('message', async function(msg) {
         if (encontrado) { tieneKeyword = true; break; }
       }
     }
-  }
+    // Si no coincidió con ninguna especial → no responder (estos grupos son estrictos)
+    if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
+  } else {
+    // Para el resto de grupos: aplicar lógica normal
+    // 1. Si tiene exclusión global → no responder
+    if (tieneExclusion(texto)) return;
 
-  if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
+    // 2. Buscar keyword positiva global
+    tieneKeyword = tieneKeywordPositiva(texto);
+
+    // 3. Si no encontró global, revisar keywords especiales del grupo
+    if (!tieneKeyword) {
+      var gruposEsp2 = Object.keys(KEYWORDS_ESPECIALES);
+      for (var j = 0; j < gruposEsp2.length; j++) {
+        var nombreGrupo2 = gruposEsp2[j];
+        if (chat.name.trim().toLowerCase() === nombreGrupo2.trim().toLowerCase()) {
+          var encontrado2 = KEYWORDS_ESPECIALES[nombreGrupo2].find(function(k) {
+            var t = normalizar(texto);
+            var kn = normalizar(k);
+            return t === kn || t.includes(kn);
+          });
+          if (encontrado2) { tieneKeyword = true; break; }
+        }
+      }
+    }
+
+    if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
+  }
 
   var ahora = Date.now();
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
