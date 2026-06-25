@@ -13,53 +13,31 @@ const REPORTE_FILE = '/tmp/reporte_semanal.json';
 
 const NUMEROS_IGNORADOS = [
   '272984178720993',
-  '51942535017','942535017','51942 535 017','942 535 017',
-  '51960186738','960186738','51960 186 738','960 186 738',
-  '51946043902','946043902','51946 043 902','946 043 902',
-  '51902955167','902955167','51902 955 167','902 955 167',
-  '51942008845','942008845','51942 008 845','942 008 845',
-  '51906459224','906459224','51906 459 224','906 459 224',
-  '51943103514','943103514','51943 103 514','943 103 514',
-  '51946847341','946847341','51946 847 341','946 847 341',
-  '51987140046','987140046','51987 140 046','987 140 046',
-  '51957185654','957185654','51957 185 654','957 185 654',
-  '51934983992','934983992','51934 983 992','934 983 992',
-  '51929744391','929744391','51929 744 391','929 744 391',
-  '51931235198','931235198','51931 235 198','931 235 198',
-  '51936711829','936711829','51936 711 829','936 711 829',
-  '51924047949','924047949','51924 047 949','924 047 949',
-  '51912675969','912675969','51912 675 969','912 675 969',
-  '51981290024','981290024','51981 290 024','981 290 024',
-  '51914352139','914352139','51914 352 139','914 352 139',
-  '51936899473','936899473','51936 899 473','936 899 473',
-  '51956856787','956856787','51956 856 787','956 856 787',
-  '51910795590','910795590','51910 795 590','910 795 590',
-  '51934572456','934572456','51934 572 456','934 572 456',
-  '51972077603','972077603','51972 077 603','972 077 603',
-  '51972066872','972066872','51972 066 872','972 066 872',
-  '51950006969','950006969','51950 006 969','950 006 969',
-  '51957511240','957511240','51957 511 240','957 511 240',
-  '51997186215','997186215','51997 186 215','997 186 215',
-  '51966124285','966124285','51966 124 285','966 124 285',
-  '51912699997','912699997','51912 699 997','912 699 997',
-  '51924917366','924917366','51924 917 366','924 917 366',
-  '51963936600','963936600','51963 936 600','963 936 600',
-  '51976481032','976481032','51976 481 032','976 481 032',
-  '51907413081','907413081','51907 413 081','907 413 081',
-  '923938101','51923938101','923 938 101','51923 938 101',
-  '51979397948','979397948','51979 397 948','979 397 948',
-  '51955214645','955214645','51955 214 645','955 214 645',
-  '51955794995','955794995','51955 794 995','955 794 995',
-  '51932736288','932736288','51932 736 288','932 736 288',
-  '51902425988','902425988','51902 425 988','902 425 988',
-  '51973155047','973155047','51973 155 047','973 155 047',
-  '34641095746','34641 09 57 46','34 641 09 57 46',
-  '51956640522','956640522','51956 640 522','956 640 522'
+  '51942535017','942535017','51952696865','952696865',
+  '51960186738','960186738','51946043902','946043902',
+  '51902955167','902955167','51942008845','942008845',
+  '51906459224','906459224','51943103514','943103514',
+  '51946847341','946847341','51987140046','987140046',
+  '51957185654','957185654','51934983992','934983992',
+  '51929744391','929744391','51931235198','931235198',
+  '51936711829','936711829','51924047949','924047949',
+  '51912675969','912675969','51981290024','981290024',
+  '51914352139','914352139','51936899473','936899473',
+  '51956856787','956856787','51910795590','910795590',
+  '51934572456','934572456','51972077603','972077603',
+  '51972066872','972066872','51950006969','950006969',
+  '51957511240','957511240','51997186215','997186215',
+  '51966124285','966124285','51912699997','912699997',
+  '51924917366','924917366','51963936600','963936600',
+  '51976481032','976481032','51907413081','907413081',
+  '923938101','51923938101','51979397948','979397948',
+  '51955214645','955214645','51955794995','955794995',
+  '51932736288','932736288','51902425988','902425988',
+  '51973155047','973155047','34641095746',
+  '51956640522','956640522'
 ];
 
-const NUMEROS_DUENO = [
-  '51939610396','939610396','51939 610 396','939 610 396'
-];
+const NUMEROS_DUENO = ['51939610396','939610396'];
 
 const GRUPOS_FOTO = [
   'CANTONES - BOX DELIVERY',
@@ -71,79 +49,132 @@ const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
   'CARTAS RESTAURANTES': [
-    'ingrese',
-    'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda',
-    'uno a huacachina','uno para huacachina'
+    'ingrese','listo','a tienda por favor','a tienda','tienda por favor','uno','hola uno por favor','uno por favor','a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda',
+    'manden a tienda','uno a tienda','uno a huacachina','uno para huacachina','hola me envias uno','alguien disponible','me mandas uno','alguien cerca',
+    'alguien disponible en 10min','alguien disponible en 5min',
+    'me envia uno porfa','enviame uno porfa','enviame uno',
+    'hola me envias uno','manda uno'
   ],
-  'BRUCES BOX DELIVERY': ['uno', 'hola uno por favor', 'uno por favor'],
+  'BRUCES BOX DELIVERY': ['uno','hola uno por favor','uno por favor'],
   'LA PARRILLERIA BOX DELIVERY': [
     'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
   ],
-  'MUELLE BOX DELIVERY': [
-    'uno a huacachina','uno para huacachina'
-  ]
+  'McGrill Restaurante BOX DELIVERY': [
+    'hola me envias uno','alguien disponible','me mandas uno','alguien cerca',
+    'alguien disponible en 10min','alguien disponible en 5min',
+    'me envia uno porfa','enviame uno porfa','enviame uno',
+    'hola me envias uno','manda uno'
+  ],
+  'MUELLE BOX DELIVERY': ['uno a huacachina','uno para huacachina']
 };
 
-const KEYWORDS_GLOBALES = [
-  'pedido listo','motorizado','un delivery','delivery para el local',
-  'pedido en 5 minutos','pedido','pueden venir','ya esta listo el pedido',
-  'acercarce','acercarse','motorizado en 5 minutos','10 minutos pedido listo',
-  '5 minutos pedidos','en 5 minutos','5 min','10 min','5min','10min',
-  'tenemos pedido','box','un box','un motorizado','venir','pedidi',
-  'movilidad','movil','viniendo','moto','unidad',
-  'vengan','venga','delivery','confirmado','recoger',
-  'se pueden acercar','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
-  'ptb mega','pds a ptb','pds a mega','ptb a parcona',
-  'se acerca al local','se acerca al local en estos momentos','acercandose al local',
-  'me envias uno porfa'
+// ============================================================
+// 🔴 LISTA NEGATIVA — si el mensaje contiene CUALQUIERA de estas
+// frases o palabras, el bot NO responde sin importar qué más diga
+// ============================================================
+const KEYWORDS_EXCLUIR = [
+  // Consultas de precio
+  'cuanto','cuánto','precio','costo','tarifa','cobran','cobras',
+  'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
+  'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
+  'cuanto es el delivery','cuanto me sale','cuanto cobran',
+  'cuanto es','cuanto sera','cuánto sera','a cuánto esta',
+  'a cuanto esta','tiene costo','tiene precio','free','gratis',
+
+  // Cliente viene a recoger
+  'viene a recoger','va a recoger','pasa a recoger','pasar a recoger',
+  'viene a recojerlo','viene a recogerlo','lo recoge','manda a recoger',
+  'puede pasar','ya puede pasar','pasar por su pedido','viene por su pedido',
+  'ya puedes recoger','puedes pasar a recogerlo','puedes pasar a recojerlo',
+  'va a pasar','viene a pasar','pasa por su pedido',
+
+  // Pedido del cliente / aviso interno
+  'su pedido esta listo','tu pedido esta listo','ya esta listo su pedido',
+  'listo para recoger','ya tiene su pedido',
+  'el pedido esta listo para recoger',
+  'puede venir por su pedido','puede pasar por su pedido',
+  'ya tiene su pedido listo','lo enviamos con otro delivery',
+  'pedido pequeno','pedido pequeño','pedido grande',
+  'a que hora vienes por tu pedido','a que hora viene por su pedido',
+
+  // Otro delivery / con POS
+  'con pos','otro delivery con pos','digale que envio con otro delivery',
+  'con otro delivery','otro delivery lleva','enviamos con otro',
+
+  // Tiempos largos (no es urgente)
+  '16 minutos','20 minutos','25 minutos','30 minutos','40 minutos','45 minutos',
+  '16min','20min','25min','30min','40min','45min',
+  'en 16 min''en 20 min','en 25 min','en 30 min','en 40 min','en 45 min',
+  '20 min','25 min','30 min','40 min','45 min',
+
+  // Confirmación futura (aún no está listo)
+  'confirmo en unos minutos','confirmamos en unos minutos',
+  'confirmo en un momento','confirmo en breve','confirmo en',
+  'confirmamos en','les aviso cuando','le aviso cuando',
+  'les mandaremos mensaje cuando','cuando este listo les',
+  'buenas tardes por si sale','buenas noches por si sale',
+  'buenos dias por si sale','por si sale algun pedido',
+  'por si sale otro pedido','por si sale otro',
+
+  // Lugares / direcciones (para no confundir con "para el local")
+  'emapica','municipalidad','hospital','banco','essalud','minsa',
+  'universidad','iglesia','santo domingo','san francisco','san jose',
+  'minedu','ministerio','comisaria','prefecture','prefectura',
+  'mercado','supermercado','plaza vea','metro ','tottus',
+  'para la urb','para urb','para jr','para av ','para calle',
+  'para pasaje','manzana','mz ','lote ','lt ','etapa',
+  'para residencial','condominio','urbanizacion ','menorca ','santa maria ','san jose',
+
+  // Signo de pregunta (casi siempre es consulta)
+  '?',
+
+  // Otros falsos positivos conocidos
+  '+51','del mas cercano','exclusivamente para delivery','solo para delivery','valido para delivery',
+  'aqui esta amigo','puede recogerlo','ya puedes pasar',
+  'ya puede recoger'
 ];
 
-const KEYWORDS_EXCLUIR = [
-  'cotizacion','cotización','precio','cuanto','cuánto',
-  'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
-  'tarifa','tarifas','costo','cobran','cobras','cuanto cobran',
-  'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
-  'cuanto es el delivery','cuanto me sale',
-  'confirmo en unos minutos','confirmamos en unos minutos',
-  'confirmo en un momento','confirmo en breve',
-  '20 minutos','25 minutos','30 minutos','en 20 min','en 25 min','en 30 min',
-  '20min','25min','30min','20 min','25 min','30 min',
-  'le aviso cuando los pedidos esten listo',
-  'les mandaremos mensaje cuando el pedido este listo',
-  'aqui esta amigo puedes pasar a recojerlo',
-  'aqui esta amigo puedes pasar a recogerlo',
-  'puedes pasar a recojerlo',
-  'puedes pasar a recogerlo',
-  'exclusivamente para delivery',
-  'ya esta listo su pedido',
-  'puede venir por su pedido',
-  'pedido pequeno','pedido pequeño',
-  'pedido grande',
-  'a que hora vienes por tu pedido',
-  'a que hora viene por su pedido',
-  'digale que envio con otro delivery',
-  'digale que envio con otro delivery con pos',
-  'tu pedido esta listo',
-  'otro delivery con pos lleva el pedido',
-  'con otro delivery con pos',
-  'con pos',
-  'viene a recoger',
-  'ya puede pasar',
-  'pedido para recoger',
-  'lo recoge',
-  'manda a recoger',
-  'va a recoger',
-  'pasa a recoger',
-  'pasar a recoger',
-  'viene por su pedido',
-  'viene a recojerlo',
-  'viene a recogerlo',
-  'su pedido esta listo',
-  'el pedido esta listo para recoger',
-  'listo para recoger',
-  'puede pasar por su pedido',
-  'ya tiene su pedido listo',
-  'pedido listo para recoger'
+// ============================================================
+// 🟢 LISTA POSITIVA — palabras/frases que activan el bot
+// Se verifican SOLO si el mensaje no tiene ninguna palabra negativa
+// ============================================================
+const KEYWORDS_GLOBALES = [
+  // Vehículo / motorizado
+  'box','moto','motorizado','unidad','movil','movilidad',
+
+  // Pedido listo
+  'pedido listo','tenemos pedido','hay pedido',
+  'ya esta listo el pedido','pedido listo en',
+
+  // Solicitudes de presencia
+  'pueden venir','vengan','venga','vayan','acercarse','acercarce',
+  'acercandose','se pueden acercar','vayan a ptb','vayan a pds',
+  'vayan a mega','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
+  'ptb mega','pds a ptb','pds a mega','ptb a parcona',
+  'se acerca al local',
+
+  // Tiempo corto (urgente)
+  '5 min','10 min','7 min','5min','10min','7min',
+  'en 5 minutos','en 7 minutos','en 10 minutos',
+  '5 minutos','7 minutos','10 minutos',
+
+  // Confirmacion real de pedido
+  'confirmo pedido',
+
+  // Unidades específicas
+  'una unidad','un motorizado','un box','un movil',
+
+  // Delivery con contexto positivo
+  'un delivery','delivery por favor','delivery porfa',
+  'necesito delivery','manden delivery','me envia un delivery',
+  'me envias un delivery','puede mandar un delivery',
+  'enviar un delivery','delivery a tienda','delivery al local',
+  'necesito un delivery','delivery por favor',
+
+  // Frases directas comunes de locales
+  'venir al local','pasar al local',
+  'alguien puede acercarse',
+  'recoger pedido',
 ];
 
 const SIEMPRE_INACTIVOS = [
@@ -207,6 +238,7 @@ const LOCALES_MAP = {
   'fid': 'Fidel', 'fidel': 'Fidel',
   'hua': 'Pollería El Huarango', 'huarango': 'Pollería El Huarango',
   'par': 'Paradero', 'paradero': 'Paradero',
+  'sel': 'Selah Coffe', 'selah': 'Selah Coffe', 'selah coffe': 'Selah Coffe',
   'bol': 'Boletas', 'boletas': 'Boletas',
   'don': 'Don Alejandro', 'don alejandro': 'Don Alejandro',
   'elb': 'El Borgo', 'el borgo': 'El Borgo',
@@ -217,125 +249,86 @@ const LOCALES_MAP = {
 
 const SECTORES = {
   'Sector PTB': [
-    'CARTAS RESTAURANTES',
-    'LA BUMANGUESA BOX DELIVERY',
-    'MONKEY DONUTS BOX DELIVERY',
-    'MONKEY DONUTS BOX DELIVERY ',
-    'Pizzería cardenatti box delivery',
-    'Pizzería cardenatti box delivery ',
-    'PEÑONETTI BOX DELIVERY',
-    'SHAWABURGUER BOX DELIVERY',
-    'BRUCES BOX DELIVERY',
-    'BRUCES BOX DELIVERY ',
-    'FLAMANGOS - BOX DELIVERY',
-    'FLAMANGOS- BOX DELIVERY',
-    'KAFFA COFFEE - BOX DELIVERY',
-    'KAFFA COFFEE- BOX DELIVERY',
-    'KAFFA COFFEE BOX DELIVERY',
-    'MUELLE BOX DELIVERY',
-    'MUELLE BOX DELIVERY '
+    'CARTAS RESTAURANTES','LA BUMANGUESA BOX DELIVERY',
+    'MONKEY DONUTS BOX DELIVERY','MONKEY DONUTS BOX DELIVERY ',
+    'Pizzería cardenatti box delivery','Pizzería cardenatti box delivery ',
+    'PEÑONETTI BOX DELIVERY','SHAWABURGUER BOX DELIVERY',
+    'BRUCES BOX DELIVERY','BRUCES BOX DELIVERY ',
+    'FLAMANGOS - BOX DELIVERY','FLAMANGOS- BOX DELIVERY',
+    'KAFFA COFFEE - BOX DELIVERY','KAFFA COFFEE- BOX DELIVERY',
+    'KAFFA COFFEE BOX DELIVERY','MUELLE BOX DELIVERY','MUELLE BOX DELIVERY '
   ],
   'Sector San José': [
-    'Hola',
-    'THE CROWN BOX DELIVERY',
-    'HARVEST BOX DELIVERY',
-    'RICOS PROTEIN - BOX DELIVERY',
-    'AYABACA - BUMANGUESA II',
-    'MISKY POLLERIA (dribox)',
-    'KAM LONG PEDIDOS',
-    'BOCHITOS BOX DELIVERY',
-    'LAS NIEVES BOX DELIVERY',
-    'HELADERÍA EL PINGÜINO',
-    'MR. SUSHI BOX DELIVERY'
+    'Hola','THE CROWN BOX DELIVERY','HARVEST BOX DELIVERY',
+    'RICOS PROTEIN - BOX DELIVERY','AYABACA - BUMANGUESA II',
+    'MISKY POLLERIA (dribox)','KAM LONG PEDIDOS','BOCHITOS BOX DELIVERY',
+    'LAS NIEVES BOX DELIVERY','HELADERÍA EL PINGÜINO','MR. SUSHI BOX DELIVERY'
   ],
   'Sector Moderna': [
-    'BUBATON BOX DELIVERY',
-    'CRAZY CORN 🌭🧋🤗',
-    'CHIFA LIU BOX DELIVERY',
-    'McGrill Restaurante BOX DELIVERY',
-    'REST CENTRO BOX DELIVERY',
-    'REST CENTRO BOX DELIVERY ',
-    'DELIVERY BOX / LAGUNILLA',
-    'MISTER JUGO BOX DELIVERY',
-    'MISTER JUGO BOX DELIVERY ',
-    'CANTONES - BOX DELIVERY',
-    'PIM PAM POLLO BOX DELIVERY',
-    'CHIFA CHANG KEE PEDIDOS',
-    'MONO ALITAS BOX DELIVERY',
-    'KANASTAS BOX DELIVERY',
-    'KANASTAS BOX DELIVERY ',
-    'PUERTO RICO BOX DELIVERY',
-    'PUERTO RICO BOX DELIVERY '
+    'BUBATON BOX DELIVERY','CRAZY CORN 🌭🧋🤗','CHIFA LIU BOX DELIVERY',
+    'McGrill Restaurante BOX DELIVERY','REST CENTRO BOX DELIVERY',
+    'REST CENTRO BOX DELIVERY ','DELIVERY BOX / LAGUNILLA',
+    'MISTER JUGO BOX DELIVERY','MISTER JUGO BOX DELIVERY ',
+    'CANTONES - BOX DELIVERY','PIM PAM POLLO BOX DELIVERY',
+    'CHIFA CHANG KEE PEDIDOS','MONO ALITAS BOX DELIVERY',
+    'KANASTAS BOX DELIVERY','KANASTAS BOX DELIVERY ',
+    'PUERTO RICO BOX DELIVERY','PUERTO RICO BOX DELIVERY '
   ],
   'Sector La Angostura': [
-    'Boletas locales',
-    'Don Alejandro -BOX DELYBERY',
-    'EL BORGO BOX DELIVERY',
+    'Boletas locales','Don Alejandro -BOX DELYBERY','EL BORGO BOX DELIVERY',
     'OCTAVIA LA ANGOSTURA - BOX DELIVERY',
-    'FIDEL - BOX DELIVERY ICA',
-    'FIDEL - BOX DELIVERY ICA '
+    'FIDEL - BOX DELIVERY ICA','FIDEL - BOX DELIVERY ICA '
   ],
   'Sector Comodin': [
-    'ARTIA PASTELERIA (dribox)',
-    'PEPEFOD DELIVERY',
-    'MIAS BOX DELIVERY',
-    'ONEST BOX DELIVERY',
-    'ONEST BOX DELIVERY ',
-    'Hugo Restaurante BOX DELIVERY',
-    'Hugo Restaurante BOX DELIVERY ',
-    'Palacio Oriental BOX DELIVERY',
-    'ROCA STEAK HOUSE BOX DELIVERY',
-    'PAPEADO SAN ISIDRO BOX DELIVERY',
-    'SMART NUTRITION BOX DELIVERY',
-    'DELIVERY BIEN PESCAO 🏍️',
-    'PIO RICO BOX DELIVERY',
-    'PIO RICO BOX DELIVERY ',
-    'POLLERÍA EL HUARANGO - BOX DELIVERY',
-    'Paradero ',
-    'Paradero',
-    'Rincón del sabor BOX DELIVERY',
-    'PUNTO CALIENTE - BOX DELIVERY',
-    'LA PARRILLERIA BOX DELIVERY',
-    'LA PARRILLERIA BOX DELIVERY '
+    'ARTIA PASTELERIA (dribox)','PEPEFOD DELIVERY','MIAS BOX DELIVERY',
+    'ONEST BOX DELIVERY','ONEST BOX DELIVERY ',
+    'Hugo Restaurante BOX DELIVERY','Hugo Restaurante BOX DELIVERY ',
+    'Palacio Oriental BOX DELIVERY','ROCA STEAK HOUSE BOX DELIVERY',
+    'PAPEADO SAN ISIDRO BOX DELIVERY','SMART NUTRITION BOX DELIVERY',
+    'DELIVERY BIEN PESCAO 🏍️','PIO RICO BOX DELIVERY','PIO RICO BOX DELIVERY ',
+    'POLLERÍA EL HUARANGO - BOX DELIVERY','Paradero ','Paradero',
+    'Rincón del sabor BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY',
+    'LA PARRILLERIA BOX DELIVERY','LA PARRILLERIA BOX DELIVERY ',
+    'Selah Coffe BOX DELIVERY','Selah Coffe BOX DELIVERY '
   ],
   'Sector X (otros)': [
-    'DRIBOX 🏍️',
-    'Reporte Deliverys ICA!! 🏍️💨',
-    'SERVICIO DELIVERY RUMI-WASI',
-    'GRUPO DE MOTORIZADOS'
+    'DRIBOX 🏍️','Reporte Deliverys ICA!! 🏍️💨',
+    'SERVICIO DELIVERY RUMI-WASI','GRUPO DE MOTORIZADOS'
   ]
 };
 
 const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
+function getHoraPeru() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
+}
+
 function normalizar(texto) {
   return texto.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9 ]/g, '');
+    .replace(/[^a-z0-9 ?]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function similarEnough(texto, keyword) {
-  var t = normalizar(texto);
-  var k = normalizar(keyword);
-  if (t.includes(k)) return true;
-  var words = k.split(' ');
-  return words.every(function(w) {
-    if (w.length <= 3) return t.includes(w);
-    for (var i = 0; i <= t.length - w.length + 1; i++) {
-      var sub = t.substr(i, w.length + 1);
-      var diff = 0;
-      for (var j = 0; j < w.length; j++) {
-        if (w[j] !== (sub[j] || '')) diff++;
-      }
-      if (diff <= 1) return true;
-    }
-    return false;
-  });
-}
-
+// ============================================================
+// 🔴 Verifica si el mensaje tiene alguna palabra/frase negativa
+// Si encuentra UNA sola → el bot NO responde
+// ============================================================
 function tieneExclusion(texto) {
   var t = normalizar(texto);
   return KEYWORDS_EXCLUIR.some(function(k) {
+    return t.includes(normalizar(k));
+  });
+}
+
+// ============================================================
+// 🟢 Verifica si el mensaje tiene alguna palabra/frase positiva
+// Se llama SOLO si tieneExclusion() devolvió false
+// ============================================================
+function tieneKeywordPositiva(texto) {
+  var t = normalizar(texto);
+  return KEYWORDS_GLOBALES.some(function(k) {
     return t.includes(normalizar(k));
   });
 }
@@ -359,12 +352,6 @@ function esGrupoGanancias(nombreGrupo) {
   });
 }
 
-function esDueno(numero) {
-  return NUMEROS_DUENO.some(function(n) {
-    return n.replace(/\s/g,'') === numero.replace(/\s/g,'');
-  });
-}
-
 function buscarLocal(palabraClave) {
   var clave = normalizar(palabraClave).trim();
   if (LOCALES_MAP[clave]) return LOCALES_MAP[clave];
@@ -379,12 +366,12 @@ function loadGanancias() {
   try {
     if (fs.existsSync(GANANCIAS_FILE)) {
       var data = JSON.parse(fs.readFileSync(GANANCIAS_FILE, 'utf8'));
-      var hoy = new Date().toLocaleDateString('es-PE');
+      var hoy = getHoraPeru().toLocaleDateString('es-PE');
       if (data.fecha !== hoy) return { fecha: hoy, ganancias: 0, gastos: 0 };
       return data;
     }
   } catch(e) {}
-  return { fecha: new Date().toLocaleDateString('es-PE'), ganancias: 0, gastos: 0 };
+  return { fecha: getHoraPeru().toLocaleDateString('es-PE'), ganancias: 0, gastos: 0 };
 }
 
 function saveGanancias(data) {
@@ -393,9 +380,7 @@ function saveGanancias(data) {
 
 function loadReporte() {
   try {
-    if (fs.existsSync(REPORTE_FILE)) {
-      return JSON.parse(fs.readFileSync(REPORTE_FILE, 'utf8'));
-    }
+    if (fs.existsSync(REPORTE_FILE)) return JSON.parse(fs.readFileSync(REPORTE_FILE, 'utf8'));
   } catch(e) {}
   return { semana_inicio: getFechaLunesActual(), locales: {}, gastos: {}, localesHoy: {}, gastosHoy: {} };
 }
@@ -405,7 +390,7 @@ function saveReporte(data) {
 }
 
 function getFechaLunesActual() {
-  var hoy = new Date();
+  var hoy = getHoraPeru();
   var dia = hoy.getDay();
   var diff = (dia === 0) ? -6 : 1 - dia;
   var lunes = new Date(hoy);
@@ -536,7 +521,7 @@ function enviarNotificacion(grupo, hora) {
 
 setInterval(async function() {
   if (!isReady) return;
-  var ahora = new Date();
+  var ahora = getHoraPeru();
   var esDomingo = ahora.getDay() === 0;
   var esHora2359 = ahora.getHours() === 23 && ahora.getMinutes() === 59;
 
@@ -592,9 +577,13 @@ setInterval(async function() {
   }
 }, 60 * 1000);
 
+// ✅ FIX: protocolTimeout aumentado
 var client = new Client({
   authStrategy: new LocalAuth(),
-  puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+  puppeteer: {
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    protocolTimeout: 60000
+  }
 });
 
 client.on('qr', function(qr) { qrCodeData = qr; isReady = false; });
@@ -610,30 +599,37 @@ client.on('disconnected', function(reason) {
   setTimeout(function() { try { client.initialize(); } catch(e) { process.exit(0); } }, 3000);
 });
 
+// ✅ FIX: delay + try/catch en ready
 client.on('ready', async function() {
   isReady = true; qrCodeData = '';
-  var chats = await client.getChats();
-  var grupos = chats.filter(function(c) { return c.isGroup; });
-  GRUPOS_CACHE = grupos.map(function(g) { return { id: g.id._serialized, name: g.name }; });
-  GRUPOS_CACHE.sort(function(a, b) {
-    var ia = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === a.name.trim().toLowerCase(); });
-    var ib = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === b.name.trim().toLowerCase(); });
-    if (ia === -1 && ib === -1) return 0;
-    if (ia === -1) return 1; if (ib === -1) return -1;
-    return ia - ib;
-  });
-  GRUPOS_CACHE.forEach(function(g) {
-    var esInactivo = SIEMPRE_INACTIVOS.some(function(n) { return g.name.toLowerCase().includes(n.toLowerCase()); });
-    var esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
-    var esGanancias = esGrupoGanancias(g.name);
-    if (esInactivo || (esSectorX && !esGanancias)) {
-      GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(function(id) { return id !== g.id; });
-      return;
-    }
-    if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
-  });
-  saveConfig();
-  console.log('Listo');
+  console.log('WhatsApp listo, esperando 5s...');
+  await new Promise(function(resolve) { setTimeout(resolve, 5000); });
+  try {
+    var chats = await client.getChats();
+    var grupos = chats.filter(function(c) { return c.isGroup; });
+    GRUPOS_CACHE = grupos.map(function(g) { return { id: g.id._serialized, name: g.name }; });
+    GRUPOS_CACHE.sort(function(a, b) {
+      var ia = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === a.name.trim().toLowerCase(); });
+      var ib = ORDEN_GRUPOS.findIndex(function(n) { return n.trim().toLowerCase() === b.name.trim().toLowerCase(); });
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1; if (ib === -1) return -1;
+      return ia - ib;
+    });
+    GRUPOS_CACHE.forEach(function(g) {
+      var esInactivo = SIEMPRE_INACTIVOS.some(function(n) { return g.name.toLowerCase().includes(n.toLowerCase()); });
+      var esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
+      var esGanancias = esGrupoGanancias(g.name);
+      if (esInactivo || (esSectorX && !esGanancias)) {
+        GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(function(id) { return id !== g.id; });
+        return;
+      }
+      if (!GRUPOS_ACTIVOS.includes(g.id)) GRUPOS_ACTIVOS.push(g.id);
+    });
+    saveConfig();
+    console.log('Listo - ' + grupos.length + ' grupos cargados');
+  } catch(e) {
+    console.log('Error cargando chats:', e.message);
+  }
 });
 
 client.on('message', async function(msg) {
@@ -651,7 +647,7 @@ client.on('message', async function(msg) {
   if (esGrupoGanancias(chat.name)) {
     if (msg.fromMe) return;
     if (texto.trim().toLowerCase() === 'reset') {
-      var hoyReset = new Date().toLocaleDateString('es-PE');
+      var hoyReset = getHoraPeru().toLocaleDateString('es-PE');
       saveGanancias({ fecha: hoyReset, ganancias: 0, gastos: 0 });
       await chat.sendMessage('✅ Listo, nuevo día\n✅ GANANCIAS: Total hoy: 0 soles\n📉 GASTOS: Total hoy: -0 soles\nTOTAL LIQUIDO 🤑: 0 soles');
       return;
@@ -659,7 +655,7 @@ client.on('message', async function(msg) {
     var entradas = extraerEntradas(texto);
     if (entradas.length > 0) {
       var ganData = loadGanancias();
-      var hoy = new Date().toLocaleDateString('es-PE');
+      var hoy = getHoraPeru().toLocaleDateString('es-PE');
       if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
       var rep = loadReporte();
       var lunesActual = getFechaLunesActual();
@@ -695,29 +691,44 @@ client.on('message', async function(msg) {
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
   if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) { return chat.name.toLowerCase().includes(n.toLowerCase()); });
+
+  // ============================================================
+  // 🧠 NUEVA LÓGICA: Primero excluir, luego buscar positivo
+  // Si el mensaje tiene CUALQUIER palabra negativa → ignorar
+  // Si no tiene negativas → buscar si tiene alguna positiva
+  // ============================================================
   if (tieneExclusion(texto)) return;
 
-  var tieneKeyword = KEYWORDS_GLOBALES.find(function(k) { return similarEnough(texto, k); });
+  var tieneKeyword = tieneKeywordPositiva(texto);
+
+  // Si no encontró keyword global, revisar keywords especiales del grupo
   if (!tieneKeyword) {
     var gruposEsp = Object.keys(KEYWORDS_ESPECIALES);
     for (var i = 0; i < gruposEsp.length; i++) {
       var nombreGrupo = gruposEsp[i];
       if (chat.name.trim().toLowerCase() === nombreGrupo.trim().toLowerCase()) {
-        tieneKeyword = KEYWORDS_ESPECIALES[nombreGrupo].find(function(k) {
-          return normalizar(texto) === normalizar(k) || normalizar(texto).includes(normalizar(k));
+        var encontrado = KEYWORDS_ESPECIALES[nombreGrupo].find(function(k) {
+          var t = normalizar(texto);
+          var kn = normalizar(k);
+          return t === kn || t.includes(kn);
         });
-        if (tieneKeyword) break;
+        if (encontrado) { tieneKeyword = true; break; }
       }
     }
   }
 
   if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
+
   var ahora = Date.now();
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
   lastReply[chatId] = ahora;
   await msg.reply(AUTO_REPLY);
-  var now = new Date();
-  HISTORIAL.unshift({ grupo: chat.name, sector: sectorDelGrupo, mensaje: esFoto ? '📸 Foto' : texto.substring(0, 80), fecha: now.toLocaleDateString('es-PE'), hora: now.toLocaleTimeString('es-PE') });
+  var now = getHoraPeru();
+  HISTORIAL.unshift({
+    grupo: chat.name, sector: sectorDelGrupo,
+    mensaje: esFoto ? '📸 Foto' : texto.substring(0, 80),
+    fecha: now.toLocaleDateString('es-PE'), hora: now.toLocaleTimeString('es-PE')
+  });
   saveHistorial();
   enviarNotificacion(chat.name, now.toLocaleTimeString('es-PE'));
   botActivo = false; saveConfig();
@@ -810,7 +821,7 @@ app.get('/', function(req, res) {
   });
 
   var ganData = loadGanancias();
-  var hoy = new Date().toLocaleDateString('es-PE');
+  var hoy = getHoraPeru().toLocaleDateString('es-PE');
   if (ganData.fecha !== hoy) ganData = { fecha: hoy, ganancias: 0, gastos: 0 };
   var totalLiquido = Math.round((ganData.ganancias - ganData.gastos) * 100) / 100;
   var ganColor = totalLiquido >= 0 ? '#e8f5e9' : '#fdecea';
