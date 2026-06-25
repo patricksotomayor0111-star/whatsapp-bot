@@ -49,21 +49,12 @@ const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
   'CARTAS RESTAURANTES': [
-    'ingrese','listo','a tienda por favor','a tienda','tienda por favor','uno','hola uno por favor','uno por favor','a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda',
-    'manden a tienda','uno a tienda','uno a huacachina','uno para huacachina','hola me envias uno','alguien disponible','me mandas uno','alguien cerca',
-    'alguien disponible en 10min','alguien disponible en 5min',
-    'me envia uno porfa','enviame uno porfa','enviame uno',
-    'hola me envias uno','manda uno'
+    'ingrese','a tienda por favor','a tienda','tienda por favor',
+    'manden a tienda','uno a tienda','uno a huacachina','uno para huacachina'
   ],
   'BRUCES BOX DELIVERY': ['uno','hola uno por favor','uno por favor'],
   'LA PARRILLERIA BOX DELIVERY': [
     'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
-  ],
-  'McGrill Restaurante BOX DELIVERY': [
-    'hola me envias uno','alguien disponible','me mandas uno','alguien cerca',
-    'alguien disponible en 10min','alguien disponible en 5min',
-    'me envia uno porfa','enviame uno porfa','enviame uno',
-    'hola me envias uno','manda uno'
   ],
   'MUELLE BOX DELIVERY': ['uno a huacachina','uno para huacachina']
 };
@@ -90,8 +81,8 @@ const KEYWORDS_EXCLUIR = [
 
   // Pedido del cliente / aviso interno
   'su pedido esta listo','tu pedido esta listo','ya esta listo su pedido',
-  'listo para recoger','ya tiene su pedido',
-  'el pedido esta listo para recoger',
+  'listo para recoger','pedido para recoger','ya tiene su pedido',
+  'el pedido esta listo para recoger','pedido listo para recoger',
   'puede venir por su pedido','puede pasar por su pedido',
   'ya tiene su pedido listo','lo enviamos con otro delivery',
   'pedido pequeno','pedido pequeño','pedido grande',
@@ -102,9 +93,9 @@ const KEYWORDS_EXCLUIR = [
   'con otro delivery','otro delivery lleva','enviamos con otro',
 
   // Tiempos largos (no es urgente)
-  '16 minutos','20 minutos','25 minutos','30 minutos','40 minutos','45 minutos',
-  '16min','20min','25min','30min','40min','45min',
-  'en 16 min''en 20 min','en 25 min','en 30 min','en 40 min','en 45 min',
+  '20 minutos','25 minutos','30 minutos','40 minutos','45 minutos',
+  '20min','25min','30min','40min','45min',
+  'en 20 min','en 25 min','en 30 min','en 40 min','en 45 min',
   '20 min','25 min','30 min','40 min','45 min',
 
   // Confirmación futura (aún no está listo)
@@ -123,13 +114,12 @@ const KEYWORDS_EXCLUIR = [
   'mercado','supermercado','plaza vea','metro ','tottus',
   'para la urb','para urb','para jr','para av ','para calle',
   'para pasaje','manzana','mz ','lote ','lt ','etapa',
-  'para residencial','condominio','urbanizacion ','menorca ','santa maria ','san jose',
 
   // Signo de pregunta (casi siempre es consulta)
   '?',
 
   // Otros falsos positivos conocidos
-  '+51','del mas cercano','exclusivamente para delivery','solo para delivery','valido para delivery',
+  '+51','del mas cercano','exclusivamente para delivery',
   'aqui esta amigo','puede recogerlo','ya puedes pasar',
   'ya puede recoger'
 ];
@@ -143,7 +133,7 @@ const KEYWORDS_GLOBALES = [
   'box','moto','motorizado','unidad','movil','movilidad',
 
   // Pedido listo
-  'pedido listo','tenemos pedido','hay pedido',
+  'pedido listo','tenemos pedido','hay pedido','pedido en camino',
   'ya esta listo el pedido','pedido listo en',
 
   // Solicitudes de presencia
@@ -151,7 +141,7 @@ const KEYWORDS_GLOBALES = [
   'acercandose','se pueden acercar','vayan a ptb','vayan a pds',
   'vayan a mega','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
-  'se acerca al local',
+  'se acerca al local','acercandose al local',
 
   // Tiempo corto (urgente)
   '5 min','10 min','7 min','5min','10min','7min',
@@ -159,7 +149,7 @@ const KEYWORDS_GLOBALES = [
   '5 minutos','7 minutos','10 minutos',
 
   // Confirmacion real de pedido
-  'confirmo pedido',
+  'confirmo pedido','confirmado','confirmado pedido',
 
   // Unidades específicas
   'una unidad','un motorizado','un box','un movil',
@@ -170,11 +160,14 @@ const KEYWORDS_GLOBALES = [
   'me envias un delivery','puede mandar un delivery',
   'enviar un delivery','delivery a tienda','delivery al local',
   'necesito un delivery','delivery por favor',
+  'me envia uno porfa','me envias uno','puede mandar uno',
+  'me podria enviar','me podrias enviar','podria enviar',
+  'por favor me envia','por favor envien',
 
   // Frases directas comunes de locales
-  'venir al local','pasar al local',
-  'alguien puede acercarse',
-  'recoger pedido',
+  'venir al local','pasar al local','acerquese al local',
+  'alguien puede acercarse','alguien disponible',
+  'alguien cerca','hay alguien','viniendo','recoger pedido'
 ];
 
 const SIEMPRE_INACTIVOS = [
