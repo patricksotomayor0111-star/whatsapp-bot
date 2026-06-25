@@ -53,7 +53,8 @@ const GRUPOS_FOTO = [
 const GRUPOS_PRIORITARIOS = [
   'mcgrill restaurante box delivery',
   'cartas restaurantes',
-  'bochitos box delivery'
+  'bochitos box delivery',
+  'pizzería cardenatti box delivery'
 ];
 
 // Frases compartidas entre McGrill y Cartas Restaurantes
@@ -73,6 +74,8 @@ const KEYWORDS_ESPECIALES = {
     ...FRASES_MCGRILL_CARTAS
   ],
   'BRUCES BOX DELIVERY': ['uno','hola uno por favor','uno por favor'],
+  // ✅ Cardenatti: solo responde a "delivery" sola (además de las keywords globales)
+  'Pizzería cardenatti box delivery': ['delivery'],
   'LA PARRILLERIA BOX DELIVERY': [
     'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
   ],
@@ -760,8 +763,8 @@ client.on('message', async function(msg) {
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
   lastReply[chatId] = ahora;
 
-  // ✅ Delay de 700ms antes de responder
-  await new Promise(function(resolve) { setTimeout(resolve, 700); });
+  // ✅ Delay de 600ms antes de responder
+  await new Promise(function(resolve) { setTimeout(resolve, 600); });
   await msg.reply(AUTO_REPLY);
 
   var now = getHoraPeru();
