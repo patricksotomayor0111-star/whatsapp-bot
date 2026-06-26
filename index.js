@@ -45,11 +45,6 @@ const GRUPOS_FOTO = [
   'CARTAS RESTAURANTES'
 ];
 
-// ============================================================
-// GRUPOS PRIORITARIOS — revisan sus keywords especiales ANTES
-// de aplicar exclusiones globales. Útil para frases con "?" u
-// otras palabras que normalmente serían bloqueadas globalmente.
-// ============================================================
 const GRUPOS_PRIORITARIOS = [
   'mcgrill restaurante box delivery',
   'cartas restaurantes',
@@ -57,7 +52,6 @@ const GRUPOS_PRIORITARIOS = [
   'pizzería cardenatti box delivery'
 ];
 
-// Frases compartidas entre McGrill y Cartas Restaurantes
 const FRASES_MCGRILL_CARTAS = [
   'hola me envias uno','me mandas uno','alguien cerca',
   'alguien disponible en 10min','alguien disponible en 5min',
@@ -74,45 +68,32 @@ const KEYWORDS_ESPECIALES = {
     ...FRASES_MCGRILL_CARTAS
   ],
   'BRUCES BOX DELIVERY': ['uno','hola uno por favor','uno por favor'],
-  // ✅ Cardenatti: solo responde a "delivery" sola (además de las keywords globales)
   'Pizzería cardenatti box delivery': ['delivery'],
   'LA PARRILLERIA BOX DELIVERY': [
     'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
   ],
   'MUELLE BOX DELIVERY': ['uno a huacachina','uno para huacachina'],
   'McGrill Restaurante BOX DELIVERY': [...FRASES_MCGRILL_CARTAS],
-  // ✅ Crown: frase especial propia
   'THE CROWN BOX DELIVERY': [
     'disculpe para que puedan venir por el delivery'
   ],
-  // ✅ Bochitos: frase con "?" — es grupo prioritario para saltarse exclusión global del "?"
   'BOCHITOS BOX DELIVERY': [
     'buenas tardes podrian enviarme un delivery porfa?'
   ]
 };
 
-// ============================================================
-// 🔴 LISTA NEGATIVA — si el mensaje contiene CUALQUIERA de estas
-// frases o palabras, el bot NO responde sin importar qué más diga.
-// EXCEPCIÓN: grupos prioritarios revisan sus keywords especiales primero.
-// ============================================================
 const KEYWORDS_EXCLUIR = [
-  // Consultas de precio
   'cuanto','cuánto','precio','costo','tarifa','cobran','cobras',
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
   'cuanto es el delivery','cuanto me sale','cuanto cobran',
   'cuanto es','cuanto sera','cuánto sera','a cuánto esta',
   'a cuanto esta','tiene costo','tiene precio','free','gratis',
-
-  // Cliente viene a recoger
   'viene a recoger','va a recoger','pasa a recoger','pasar a recoger',
   'viene a recojerlo','viene a recogerlo','lo recoge','manda a recoger',
   'puede pasar','ya puede pasar','pasar por su pedido','viene por su pedido',
   'ya puedes recoger','puedes pasar a recogerlo','puedes pasar a recojerlo',
   'va a pasar','viene a pasar','pasa por su pedido',
-
-  // Pedido del cliente / aviso interno
   'su pedido esta listo','tu pedido esta listo','ya esta listo su pedido',
   'listo para recoger','pedido para recoger','ya tiene su pedido',
   'el pedido esta listo para recoger','pedido listo para recoger',
@@ -120,18 +101,12 @@ const KEYWORDS_EXCLUIR = [
   'ya tiene su pedido listo','lo enviamos con otro delivery',
   'pedido pequeno','pedido pequeño','pedido grande',
   'a que hora vienes por tu pedido','a que hora viene por su pedido',
-
-  // Otro delivery / con POS
   'con pos','otro delivery con pos','digale que envio con otro delivery',
   'con otro delivery','otro delivery lleva','enviamos con otro',
-
-  // Tiempos largos (no es urgente)
   '20 minutos','25 minutos','30 minutos','40 minutos','45 minutos',
   '20min','25min','30min','40min','45min',
   'en 20 min','en 25 min','en 30 min','en 40 min','en 45 min',
   '20 min','25 min','30 min','40 min','45 min',
-
-  // Confirmación futura (aún no está listo)
   'confirmo en unos minutos','confirmamos en unos minutos',
   'confirmo en un momento','confirmo en breve','confirmo en',
   'confirmamos en','les aviso cuando','le aviso cuando',
@@ -139,56 +114,32 @@ const KEYWORDS_EXCLUIR = [
   'buenas tardes por si sale','buenas noches por si sale',
   'buenos dias por si sale','por si sale algun pedido',
   'por si sale otro pedido','por si sale otro',
-
-  // Lugares / direcciones
   'emapica','municipalidad','hospital','banco','essalud','minsa',
   'universidad','iglesia','santo domingo','san francisco','san jose',
   'minedu','ministerio','comisaria','prefecture','prefectura',
   'mercado','supermercado','plaza vea','metro ','tottus',
   'para la urb','para urb','para jr','para av ','para calle',
   'para pasaje','manzana','mz ','lote ','lt ','etapa',
-
-  // Signo de pregunta (casi siempre es consulta)
   '?',
-
-  // Otros falsos positivos
   '+51','del mas cercano','exclusivamente para delivery',
   'aqui esta amigo','puede recogerlo','ya puedes pasar',
-  'ya puede recoger',
-  'compra',
-  'alguien disponible'
+  'ya puede recoger','compra','alguien disponible'
 ];
 
-// ============================================================
-// 🟢 LISTA POSITIVA — activan el bot si no hay palabras negativas
-// ============================================================
 const KEYWORDS_GLOBALES = [
-  // Vehículo / motorizado
   'box','moto','motorizado','unidad','movil','movilidad',
-
-  // Pedido listo
   'pedido listo','tenemos pedido','hay pedido','pedido en camino',
   'ya esta listo el pedido','pedido listo en',
-
-  // Solicitudes de presencia
   'pueden venir','vengan','venga','vayan','acercarse','acercarce',
   'acercandose','se pueden acercar','vayan a ptb','vayan a pds',
   'vayan a mega','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
   'se acerca al local','acercandose al local',
-
-  // Tiempo corto (urgente)
   '5 min','10 min','7 min','5min','10min','7min',
   'en 5 minutos','en 7 minutos','en 10 minutos',
   '5 minutos','7 minutos','10 minutos',
-
-  // Confirmacion real de pedido
   'confirmo pedido','confirmado','confirmado pedido',
-
-  // Unidades específicas
   'una unidad','un motorizado','un box','un movil',
-
-  // Delivery con contexto positivo
   'un delivery','delivery por favor','delivery porfa',
   'necesito delivery','manden delivery','me envia un delivery',
   'me envias un delivery','puede mandar un delivery',
@@ -197,8 +148,6 @@ const KEYWORDS_GLOBALES = [
   'me envia uno porfa','me envias uno','puede mandar uno',
   'me podria enviar','me podrias enviar','podria enviar',
   'por favor me envia','por favor envien',
-
-  // Frases directas comunes de locales
   'venir al local','pasar al local','acerquese al local',
   'alguien puede acercarse',
   'alguien cerca','hay alguien','viniendo','recoger pedido',
@@ -214,6 +163,8 @@ const SIEMPRE_INACTIVOS = [
 ];
 
 const GRUPO_GANANCIAS = ['GANANCIAS', 'GANANCIAS '];
+
+const SECTOR_COMODIN = 'Sector Comodin';
 
 const LOCALES_MAP = {
   'car': 'Cartas Restaurantes', 'cartas restaurantes': 'Cartas Restaurantes',
@@ -304,7 +255,7 @@ const SECTORES = {
     'PUERTO RICO BOX DELIVERY','PUERTO RICO BOX DELIVERY '
   ],
   'Sector La Angostura': [
-    'Boletas locales','Don Alejandro -BOX DELYBERY','EL BORGO BOX DELIVERY',
+    'Don Alejandro -BOX DELYBERY','EL BORGO BOX DELIVERY',
     'OCTAVIA LA ANGOSTURA - BOX DELIVERY',
     'FIDEL - BOX DELIVERY ICA','FIDEL - BOX DELIVERY ICA '
   ],
@@ -315,7 +266,7 @@ const SECTORES = {
     'Palacio Oriental BOX DELIVERY','ROCA STEAK HOUSE BOX DELIVERY',
     'PAPEADO SAN ISIDRO BOX DELIVERY','SMART NUTRITION BOX DELIVERY',
     'DELIVERY BIEN PESCAO 🏍️','PIO RICO BOX DELIVERY','PIO RICO BOX DELIVERY ',
-    'POLLERÍA EL HUARANGO - BOX DELIVERY','Paradero ','Paradero',
+    'POLLERÍA EL HUARANGO - BOX DELIVERY','Paradero ','Paradero','Boletas locales',
     'Rincón del sabor BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY',
     'LA PARRILLERIA BOX DELIVERY','LA PARRILLERIA BOX DELIVERY ',
     'Selah Coffe BOX DELIVERY','Selah Coffe BOX DELIVERY '
@@ -506,13 +457,16 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
   } catch(e) {}
-  return { botActivo: false, gruposActivos: [], gruposCache: [], sectoresApagados: [] };
+  return { botActivo: false, gruposActivos: [], gruposCache: [], sectoresApagados: [], delay: 700 };
 }
 
 function saveConfig() {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-    botActivo: botActivo, gruposActivos: GRUPOS_ACTIVOS,
-    gruposCache: GRUPOS_CACHE, sectoresApagados: SECTORES_APAGADOS
+    botActivo: botActivo,
+    gruposActivos: GRUPOS_ACTIVOS,
+    gruposCache: GRUPOS_CACHE,
+    sectoresApagados: SECTORES_APAGADOS,
+    delay: DELAY
   }));
 }
 
@@ -533,6 +487,7 @@ var botActivo = false;
 var GRUPOS_ACTIVOS = cfg.gruposActivos || [];
 var GRUPOS_CACHE = cfg.gruposCache || [];
 var SECTORES_APAGADOS = cfg.sectoresApagados || [];
+var DELAY = cfg.delay !== undefined ? cfg.delay : 700;
 var HISTORIAL = loadHistorial();
 var qrCodeData = '';
 var isReady = false;
@@ -555,7 +510,6 @@ setInterval(async function() {
   var ahora = getHoraPeru();
   var esDomingo = ahora.getDay() === 0;
   var esHora2359 = ahora.getHours() === 23 && ahora.getMinutes() === 59;
-
   if (esHora2359 && !reporteDiarioEnviado) {
     reporteDiarioEnviado = true;
     try {
@@ -586,7 +540,6 @@ setInterval(async function() {
         saveReporte(rep);
       }
     } catch(e) { console.log('Error reporte diario:', e.message); }
-
     if (esDomingo && !reporteEnviado) {
       reporteEnviado = true;
       try {
@@ -601,7 +554,6 @@ setInterval(async function() {
       } catch(e) { console.log('Error reporte semanal:', e.message); }
     }
   }
-
   if (ahora.getHours() === 0 && ahora.getMinutes() === 0) {
     reporteEnviado = false;
     reporteDiarioEnviado = false;
@@ -610,10 +562,7 @@ setInterval(async function() {
 
 var client = new Client({
   authStrategy: new LocalAuth(),
-  puppeteer: {
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    protocolTimeout: 60000
-  }
+  puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'], protocolTimeout: 60000 }
 });
 
 client.on('qr', function(qr) { qrCodeData = qr; isReady = false; });
@@ -656,9 +605,7 @@ client.on('ready', async function() {
     });
     saveConfig();
     console.log('Listo - ' + grupos.length + ' grupos cargados');
-  } catch(e) {
-    console.log('Error cargando chats:', e.message);
-  }
+  } catch(e) { console.log('Error cargando chats:', e.message); }
 });
 
 client.on('message', async function(msg) {
@@ -722,34 +669,18 @@ client.on('message', async function(msg) {
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) { return chat.name.toLowerCase().includes(n.toLowerCase()); });
   var nombreGrupoNorm = chat.name.trim().toLowerCase();
   var esPrioritario = GRUPOS_PRIORITARIOS.includes(nombreGrupoNorm);
-
-  // ============================================================
-  // 🧠 LÓGICA PRINCIPAL
-  //
-  // GRUPOS PRIORITARIOS (McGrill, Cartas, Bochitos):
-  //   → Revisan primero sus keywords especiales
-  //   → Si coincide: responden SIN importar exclusiones globales
-  //   → Si no coincide con especiales: revisan globales normalmente
-  //
-  // RESTO DE GRUPOS:
-  //   → Si tiene exclusión global: NO responden
-  //   → Si no tiene exclusión: buscan keyword positiva global
-  //   → Si no hay global: buscan keyword especial del grupo
-  // ============================================================
+  var esComodin = sectorDelGrupo === SECTOR_COMODIN;
 
   var tieneKeyword = false;
 
   if (esPrioritario) {
-    // Paso 1: verificar keywords especiales (ignoran exclusiones globales)
     if (buscarKeywordEspecial(texto, chat.name.trim())) {
       tieneKeyword = true;
     } else {
-      // Paso 2: si no matcheó especial, aplicar lógica normal
       if (tieneExclusion(texto)) return;
       tieneKeyword = tieneKeywordPositiva(texto);
     }
   } else {
-    // Lógica normal para el resto de grupos
     if (tieneExclusion(texto)) return;
     tieneKeyword = tieneKeywordPositiva(texto);
     if (!tieneKeyword) {
@@ -763,9 +694,15 @@ client.on('message', async function(msg) {
   if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
   lastReply[chatId] = ahora;
 
-  // ✅ Delay de 600ms antes de responder
-  await new Promise(function(resolve) { setTimeout(resolve, 600); });
-  await msg.reply(AUTO_REPLY);
+  await new Promise(function(resolve) { setTimeout(resolve, DELAY); });
+
+  // ✅ Sector Comodin: responde sin remarcar (mensaje suelto)
+  // Resto de sectores: responde remarcando el mensaje original
+  if (esComodin) {
+    await chat.sendMessage(AUTO_REPLY);
+  } else {
+    await msg.reply(AUTO_REPLY);
+  }
 
   var now = getHoraPeru();
   HISTORIAL.unshift({
@@ -819,6 +756,19 @@ app.post('/cerrar-sesion', async function(req, res) {
   res.json({ ok: true });
 });
 
+app.post('/ajustes', function(req, res) {
+  var nuevoDelay = parseInt(req.body.delay);
+  if (!isNaN(nuevoDelay) && nuevoDelay >= 100 && nuevoDelay <= 1000) {
+    DELAY = nuevoDelay;
+    saveConfig();
+  }
+  res.json({ delay: DELAY });
+});
+
+app.get('/ajustes', function(req, res) {
+  res.json({ delay: DELAY });
+});
+
 app.get('/', function(req, res) {
   if (!isReady) {
     if (!qrCodeData) return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>⏳ Iniciando...</h2><p>Recarga en unos segundos</p><script>setTimeout(function(){location.reload()},4000)</script></body></html>');
@@ -840,6 +790,7 @@ app.get('/', function(req, res) {
     var grupos = porSector[sector];
     if (grupos.length === 0) return;
     var sectorActivo = !SECTORES_APAGADOS.includes(sector);
+    var esComodinSector = sector === SECTOR_COMODIN;
     var gruposDelSector = grupos.map(function(g) {
       var activo = GRUPOS_ACTIVOS.includes(g.id);
       var ahora = Date.now();
@@ -850,15 +801,16 @@ app.get('/', function(req, res) {
       var esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
       var esInact = SIEMPRE_INACTIVOS.some(function(n) { return g.name.toLowerCase().includes(n.toLowerCase()); });
       var tagManual = (esInact || esSectorX) ? '<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>' : '';
+      var tagComodin = esComodinSector ? '<span style="font-size:10px;color:#9b59b6"> 🔇 sin remarcar</span>' : '';
       var opacidad = !sectorActivo ? 'opacity:0.45;' : '';
       return '<div class="grupo-item" data-nombre="' + g.name.toLowerCase() + '" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;' + opacidad + '">' +
-        '<span style="font-size:13px;color:#444">' + g.name + fotoTag + tagManual + cooldownInfo + '</span>' +
+        '<span style="font-size:13px;color:#444">' + g.name + fotoTag + tagManual + tagComodin + cooldownInfo + '</span>' +
         '<button onclick="toggleGrupo(\'' + g.id + '\')" style="padding:5px 14px;border-radius:20px;border:none;background:' + (activo?'#25D366':'#ccc') + ';color:white;cursor:pointer;font-size:12px">' +
         (activo?'Activo':'Inactivo') + '</button></div>';
     }).join('');
     sectoresHtml += '<div class="sector-card" style="margin-bottom:16px;border:2px solid ' + (sectorActivo?'#e0e0e0':'#e74c3c') + ';border-radius:12px;overflow:hidden">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:' + (sectorActivo?'#f7f7f7':'#fdecea') + '">' +
-      '<span style="font-weight:600;font-size:15px">📍 ' + sector + '</span>' +
+      '<span style="font-weight:600;font-size:15px">📍 ' + sector + (esComodinSector ? ' 🔇' : '') + '</span>' +
       '<button onclick="toggleSector(\'' + sector + '\')" style="padding:6px 16px;border-radius:20px;border:none;background:' + (sectorActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:13px">' +
       (sectorActivo?'Sector ON ✅':'Sector OFF ⛔') + '</button></div>' +
       '<div class="sector-grupos">' + gruposDelSector + '</div></div>';
@@ -871,6 +823,12 @@ app.get('/', function(req, res) {
   var ganColor = totalLiquido >= 0 ? '#e8f5e9' : '#fdecea';
   var emojiLiquido = totalLiquido >= 0 ? '🤑' : '😬';
 
+  // Generar opciones del selector de delay
+  var delayOpciones = '';
+  for (var ms = 100; ms <= 1000; ms += 100) {
+    delayOpciones += '<option value="' + ms + '"' + (DELAY === ms ? ' selected' : '') + '>' + ms + ' ms</option>';
+  }
+
   res.send('<!DOCTYPE html><html><head>' +
     '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Bot</title>' +
     '</head><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">' +
@@ -880,6 +838,20 @@ app.get('/', function(req, res) {
     '<div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">' +
     '<a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">📋 Historial <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a>' +
     '<button onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}" style="width:100%;padding:10px 14px;font-size:15px;text-align:left;border:none;border-radius:8px;background:white;color:#e74c3c;cursor:pointer;margin-top:4px">🚪 Cerrar sesión (escanear QR nuevo)</button></div>' +
+
+    // ✅ SECCIÓN DE AJUSTES
+    '<div style="padding:14px;background:#f0f4ff;border-radius:10px;margin-bottom:12px">' +
+    '<div style="font-weight:600;font-size:14px;margin-bottom:10px">⚙️ Ajustes</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+    '<label style="font-size:13px;color:#555">⏱ Delay de respuesta:</label>' +
+    '<select id="delaySelect" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white">' +
+    delayOpciones +
+    '</select>' +
+    '<button onclick="guardarDelay()" style="padding:6px 14px;border-radius:8px;border:none;background:#3498db;color:white;cursor:pointer;font-size:13px">Guardar</button>' +
+    '</div>' +
+    '<p style="color:#888;font-size:11px;margin-top:6px;margin-bottom:0">🔇 Sector Comodín responde sin remarcar el mensaje</p>' +
+    '</div>' +
+
     '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8">' +
     '<div>✅ <b>GANANCIAS:</b> Total hoy: ' + ganData.ganancias + ' soles</div>' +
     '<div>📉 <b>GASTOS:</b> Total hoy: -' + ganData.gastos + ' soles</div>' +
@@ -888,7 +860,7 @@ app.get('/', function(req, res) {
     '<span style="font-weight:bold;font-size:16px">Bot ' + (botActivo?'✅ Activo':'⛔ Inactivo') + '</span>' +
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' + (botActivo?'Desactivar':'Activar') + '</button></div>' +
     '<p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"' + AUTO_REPLY + '"</b> | Se apaga solo al responder</p>' +
-    '<p style="color:#888;font-size:11px">📸 = fotos | ⚠️ manual = solo activacion manual | Sector OFF = bloquea todo el sector</p>' +
+    '<p style="color:#888;font-size:11px">📸 = fotos | ⚠️ manual = solo activacion manual | 🔇 = sin remarcar | Sector OFF = bloquea todo el sector</p>' +
     '<div style="margin-bottom:14px">' +
     '<input id="buscador" type="text" placeholder="🔍 Buscar grupo..." oninput="buscarGrupo(this.value)" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;box-sizing:border-box"/>' +
     '</div>' +
@@ -902,6 +874,12 @@ app.get('/', function(req, res) {
     'async function toggleBot(){await fetch("/toggle",{method:"POST"});location.reload();}' +
     'async function toggleGrupo(id){await fetch("/grupo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});location.reload();}' +
     'async function toggleSector(sector){await fetch("/sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sector:sector})});location.reload();}' +
+    'async function guardarDelay(){' +
+    '  var val = parseInt(document.getElementById("delaySelect").value);' +
+    '  await fetch("/ajustes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({delay:val})});' +
+    '  var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;right:16px;background:#3498db;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999";' +
+    '  t.textContent="✅ Delay guardado: "+val+"ms";document.body.appendChild(t);setTimeout(function(){t.remove()},2500);' +
+    '}' +
     'function buscarGrupo(q){' +
     '  var query = q.toLowerCase().trim();' +
     '  var cards = document.querySelectorAll(".sector-card");' +
