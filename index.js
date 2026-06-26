@@ -134,7 +134,7 @@ const KEYWORDS_GLOBALES = [
   'acercandose','se pueden acercar','vayan a ptb','vayan a pds',
   'vayan a mega','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
   'ptb mega','pds a ptb','pds a mega','ptb a parcona',
-  'se acerca al local','acercandose al local',
+  'se acerca al local','acercandose al local','venor','movi','v3nir',
   '5 min','10 min','7 min','5min','10min','7min',
   'en 5 minutos','en 7 minutos','en 10 minutos',
   '5 minutos','7 minutos','10 minutos',
