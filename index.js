@@ -166,6 +166,15 @@ const GRUPO_GANANCIAS = ['GANANCIAS', 'GANANCIAS '];
 
 const SECTOR_COMODIN = 'Sector Comodin';
 
+// ✅ Grupos que, aunque pertenecen a un sector con nombre propio (Sector La Angostura),
+// deben responder "sin remarcar" el mensaje (como hace el Sector Comodín).
+const GRUPOS_SIN_REMARCAR = [
+  'Don Alejandro -BOX DELYBERY',
+  'OCTAVIA LA ANGOSTURA - BOX DELIVERY',
+  'FIDEL - BOX DELIVERY ICA',
+  'FIDEL - BOX DELIVERY ICA '
+];
+
 const LOCALES_MAP = {
   'car': 'Cartas Restaurantes', 'cartas restaurantes': 'Cartas Restaurantes',
   'lab': 'La Bumanguesa', 'la bumanguesa': 'La Bumanguesa', 'bum': 'La Bumanguesa',
@@ -247,7 +256,7 @@ const SECTORES = {
   'Sector Moderna': [
     'BUBATON BOX DELIVERY','CRAZY CORN 🌭🧋🤗','CHIFA LIU BOX DELIVERY',
     'McGrill Restaurante BOX DELIVERY','REST CENTRO BOX DELIVERY',
-    'REST CENTRO BOX DELIVERY ','DELIVERY BOX / LAGUNILLA',
+    'REST CENTRO BOX DELIVERY ',
     'MISTER JUGO BOX DELIVERY','MISTER JUGO BOX DELIVERY ',
     'CANTONES - BOX DELIVERY','PIM PAM POLLO BOX DELIVERY',
     'CHIFA CHANG KEE PEDIDOS','MONO ALITAS BOX DELIVERY',
@@ -269,10 +278,12 @@ const SECTORES = {
     'POLLERÍA EL HUARANGO - BOX DELIVERY','Paradero ','Paradero','Boletas locales',
     'Rincón del sabor BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY',
     'LA PARRILLERIA BOX DELIVERY','LA PARRILLERIA BOX DELIVERY ',
-    'Selah Coffe BOX DELIVERY','Selah Coffe BOX DELIVERY '
+    'Selah Coffe BOX DELIVERY','Selah Coffe BOX DELIVERY ',
+    'DELIVERY BOX / LAGUNILLA'
   ],
   'Sector X (otros)': [
-    'DRIBOX 🏍️','Reporte Deliverys ICA!! 🏍️💨',
+    'DRIBOX 🏍️',
+    'Reporte Deliverys ICA!! 🏍️💨',
     'SERVICIO DELIVERY RUMI-WASI','GRUPO DE MOTORIZADOS'
   ]
 };
@@ -286,9 +297,41 @@ function getHoraPeru() {
 function normalizar(texto) {
   return texto.toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9 ?]/g, ' ')
+    .replace(/[^a-z0-9 ?:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// ✅ Detecta si el mensaje menciona una hora futura tipo "para las 13:45" / "a las 13:45" / "13:45"
+// y determina si esa hora está a más de 15 minutos de la hora actual (Perú/Lima).
+// Devuelve true si el mensaje debe BLOQUEARSE (hora futura a más de 15 min de distancia).
+function tieneHoraFuturaLejana(texto) {
+  var t = normalizar(texto);
+  // Captura patrones como "13:45", "1:45 pm", "13.45", precedidos opcionalmente por "para las"/"a las"/"para"/"a"
+  var regex = /(?:para\s+las\s+|a\s+las\s+|para\s+|a\s+)?\b([0-2]?[0-9])[:.h]([0-5][0-9])\s*(am|pm)?\b/g;
+  var match;
+  var ahora = getHoraPeru();
+  var horaActualMin = ahora.getHours() * 60 + ahora.getMinutes();
+
+  while ((match = regex.exec(t)) !== null) {
+    var hh = parseInt(match[1], 10);
+    var mm = parseInt(match[2], 10);
+    var ampm = match[3];
+
+    if (hh > 23 || mm > 59) continue;
+
+    if (ampm === 'pm' && hh < 12) hh += 12;
+    if (ampm === 'am' && hh === 12) hh = 0;
+
+    var horaMencionadaMin = hh * 60 + mm;
+    var diferencia = horaMencionadaMin - horaActualMin;
+
+    // Si la hora mencionada ya pasó (diferencia negativa o 0), no se considera "futura lejana"
+    if (diferencia > 15) {
+      return true; // Hora futura a más de 15 minutos: bloquear respuesta
+    }
+  }
+  return false;
 }
 
 function tieneExclusion(texto) {
@@ -326,6 +369,16 @@ function getSectorDeGrupo(nombreGrupo) {
     }
   }
   return 'Sector X (otros)';
+}
+
+// ✅ Determina si un grupo debe responder "sin remarcar" el mensaje (mensaje suelto),
+// ya sea porque está en el Sector Comodín o porque está en la lista GRUPOS_SIN_REMARCAR.
+function esGrupoSinRemarcar(nombreGrupo) {
+  var sector = getSectorDeGrupo(nombreGrupo);
+  if (sector === SECTOR_COMODIN) return true;
+  return GRUPOS_SIN_REMARCAR.some(function(n) {
+    return n.trim().toLowerCase() === nombreGrupo.trim().toLowerCase();
+  });
 }
 
 function esGrupoGanancias(nombreGrupo) {
@@ -666,10 +719,14 @@ client.on('message', async function(msg) {
   if (!GRUPOS_ACTIVOS.includes(chatId)) return;
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
   if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
+
+  // ✅ Si el mensaje menciona una hora futura a más de 15 minutos de distancia, no responder
+  if (esTexto && tieneHoraFuturaLejana(texto)) return;
+
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) { return chat.name.toLowerCase().includes(n.toLowerCase()); });
   var nombreGrupoNorm = chat.name.trim().toLowerCase();
   var esPrioritario = GRUPOS_PRIORITARIOS.includes(nombreGrupoNorm);
-  var esComodin = sectorDelGrupo === SECTOR_COMODIN;
+  var esComodin = esGrupoSinRemarcar(chat.name);
 
   var tieneKeyword = false;
 
@@ -696,7 +753,7 @@ client.on('message', async function(msg) {
 
   await new Promise(function(resolve) { setTimeout(resolve, DELAY); });
 
-  // ✅ Sector Comodin: responde sin remarcar (mensaje suelto)
+  // ✅ Sector Comodin (y grupos en GRUPOS_SIN_REMARCAR): responde sin remarcar (mensaje suelto)
   // Resto de sectores: responde remarcando el mensaje original
   if (esComodin) {
     await chat.sendMessage(AUTO_REPLY);
@@ -790,7 +847,6 @@ app.get('/', function(req, res) {
     var grupos = porSector[sector];
     if (grupos.length === 0) return;
     var sectorActivo = !SECTORES_APAGADOS.includes(sector);
-    var esComodinSector = sector === SECTOR_COMODIN;
     var gruposDelSector = grupos.map(function(g) {
       var activo = GRUPOS_ACTIVOS.includes(g.id);
       var ahora = Date.now();
@@ -801,13 +857,15 @@ app.get('/', function(req, res) {
       var esSectorX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
       var esInact = SIEMPRE_INACTIVOS.some(function(n) { return g.name.toLowerCase().includes(n.toLowerCase()); });
       var tagManual = (esInact || esSectorX) ? '<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>' : '';
-      var tagComodin = esComodinSector ? '<span style="font-size:10px;color:#9b59b6"> 🔇 sin remarcar</span>' : '';
+      var esSinRemarcarGrupo = esGrupoSinRemarcar(g.name);
+      var tagComodin = esSinRemarcarGrupo ? '<span style="font-size:10px;color:#9b59b6"> 🔇 sin remarcar</span>' : '';
       var opacidad = !sectorActivo ? 'opacity:0.45;' : '';
       return '<div class="grupo-item" data-nombre="' + g.name.toLowerCase() + '" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;' + opacidad + '">' +
         '<span style="font-size:13px;color:#444">' + g.name + fotoTag + tagManual + tagComodin + cooldownInfo + '</span>' +
         '<button onclick="toggleGrupo(\'' + g.id + '\')" style="padding:5px 14px;border-radius:20px;border:none;background:' + (activo?'#25D366':'#ccc') + ';color:white;cursor:pointer;font-size:12px">' +
         (activo?'Activo':'Inactivo') + '</button></div>';
     }).join('');
+    var esComodinSector = sector === SECTOR_COMODIN;
     sectoresHtml += '<div class="sector-card" style="margin-bottom:16px;border:2px solid ' + (sectorActivo?'#e0e0e0':'#e74c3c') + ';border-radius:12px;overflow:hidden">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:' + (sectorActivo?'#f7f7f7':'#fdecea') + '">' +
       '<span style="font-weight:600;font-size:15px">📍 ' + sector + (esComodinSector ? ' 🔇' : '') + '</span>' +
@@ -849,7 +907,8 @@ app.get('/', function(req, res) {
     '</select>' +
     '<button onclick="guardarDelay()" style="padding:6px 14px;border-radius:8px;border:none;background:#3498db;color:white;cursor:pointer;font-size:13px">Guardar</button>' +
     '</div>' +
-    '<p style="color:#888;font-size:11px;margin-top:6px;margin-bottom:0">🔇 Sector Comodín responde sin remarcar el mensaje</p>' +
+    '<p style="color:#888;font-size:11px;margin-top:6px;margin-bottom:0">🔇 Sector Comodín (y Don Alejandro, Octavia, Fidel) responden sin remarcar el mensaje</p>' +
+    '<p style="color:#888;font-size:11px;margin-top:4px;margin-bottom:0">⏰ Si mencionan una hora "para las X:XX" a más de 15 min de la hora actual (Perú), el bot no responde</p>' +
     '</div>' +
 
     '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8">' +
