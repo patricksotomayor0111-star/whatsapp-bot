@@ -83,7 +83,7 @@ const KEYWORDS_ESPECIALES = {
 };
 
 const KEYWORDS_EXCLUIR = [
-  'cuanto','cuánto','precio','costo','tarifa','cobran','cobras',
+  'cuanto','cuánto','precio','costo','tarifa','cobran','cobras','Makro','plaza vea','tottus','compra',
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
   'cuanto es el delivery','cuanto me sale','cuanto cobran',
@@ -127,7 +127,7 @@ const KEYWORDS_EXCLUIR = [
 ];
 
 const KEYWORDS_GLOBALES = [
-  'box','moto','motorizado','unidad','movil','movilidad','recoger',
+  'box','moto','motorizado','unidad','movil','movilidad','recoger','deli','dely',
   'pedido listo','tenemos pedido','hay pedido','pedido en camino',
   'ya esta listo el pedido','pedido listo en','venir',
   'pueden venir','vengan','venga','vayan','acercarse','acercarce',
