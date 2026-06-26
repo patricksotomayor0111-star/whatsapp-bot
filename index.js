@@ -63,11 +63,11 @@ const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
   'CARTAS RESTAURANTES': [
-    'ingrese','a tienda por favor','a tienda','tienda por favor',
+    'ingrese','a tienda por favor','a tienda','tienda por favor','delivery','delivery a divino maestro',
     'manden a tienda','uno a tienda','uno a huacachina','uno para huacachina',
     ...FRASES_MCGRILL_CARTAS
   ],
-  'BRUCES BOX DELIVERY': ['uno','hola uno por favor','uno por favor'],
+  'BRUCES BOX DELIVERY': ['uno','hola uno por favor','delivery a divino maestro','uno por favor'],
   'Pizzería cardenatti box delivery': ['delivery'],
   'LA PARRILLERIA BOX DELIVERY': [
     'a tienda por favor','a tienda','tienda por favor','manden a tienda','uno a tienda'
@@ -127,7 +127,7 @@ const KEYWORDS_EXCLUIR = [
 ];
 
 const KEYWORDS_GLOBALES = [
-  'box','moto','motorizado','unidad','movil','movilidad',
+  'box','moto','motorizado','unidad','movil','movilidad','recoger',
   'pedido listo','tenemos pedido','hay pedido','pedido en camino',
   'ya esta listo el pedido','pedido listo en','venir',
   'pueden venir','vengan','venga','vayan','acercarse','acercarce',
