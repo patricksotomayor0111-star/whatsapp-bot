@@ -129,7 +129,7 @@ const KEYWORDS_EXCLUIR = [
 const KEYWORDS_GLOBALES = [
   'box','moto','motorizado','unidad','movil','movilidad',
   'pedido listo','tenemos pedido','hay pedido','pedido en camino',
-  'ya esta listo el pedido','pedido listo en',
+  'ya esta listo el pedido','pedido listo en','venir',
   'pueden venir','vengan','venga','vayan','acercarse','acercarce',
   'acercandose','se pueden acercar','vayan a ptb','vayan a pds',
   'vayan a mega','ptb a mega plaza','ptb a pds','ptb a plaza de sol',
