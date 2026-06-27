@@ -137,7 +137,7 @@ const KEYWORDS_GLOBALES = [
   'se acerca al local','acercandose al local','venor','movi','v3nir',
   '5 min','10 min','7 min','5min','10min','7min',
   'en 5 minutos','en 7 minutos','en 10 minutos',
-  '5 minutos','7 minutos','10 minutos',
+  '5 minutos','7 minutos','10 minutos','amigo tengo pedido','buenas noches tengo pedido',
   'confirmo pedido','confirmado','confirmado pedido',
   'una unidad','un motorizado','un box','un movil',
   'un delivery','delivery por favor','delivery porfa',
