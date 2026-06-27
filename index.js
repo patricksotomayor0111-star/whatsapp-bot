@@ -39,8 +39,6 @@ const NUMEROS_IGNORADOS = [
 
 const NUMEROS_DUENO = ['51939610396','939610396'];
 
-// ✅ Configuración del Sector Base
-// Cada grupo tiene su número autorizado y sus frases permitidas
 const SECTOR_BASE_CONFIG = {
   'REPORTES BOX DELIVERY': {
     numerosAutorizados: [
@@ -373,7 +371,6 @@ function getSectorDeGrupo(nombreGrupo) {
 function esGrupoSinRemarcar(nombreGrupo) {
   var sector = getSectorDeGrupo(nombreGrupo);
   if (sector === SECTOR_COMODIN) return true;
-  if (sector === SECTOR_BASE) return true;
   return GRUPOS_SIN_REMARCAR.some(function(n) {
     return n.trim().toLowerCase() === nombreGrupo.trim().toLowerCase();
   });
@@ -385,7 +382,6 @@ function esGrupoGanancias(nombreGrupo) {
   });
 }
 
-// ✅ Verifica si el mensaje en un grupo del Sector Base debe procesarse
 function procesarMensajeSectorBase(nombreGrupo, numero, texto) {
   var config = null;
   var keys = Object.keys(SECTOR_BASE_CONFIG);
@@ -396,15 +392,11 @@ function procesarMensajeSectorBase(nombreGrupo, numero, texto) {
     }
   }
   if (!config) return false;
-
-  // Verificar que el número sea el autorizado
   var numeroLimpio = numero.replace(/\s/g, '');
   var autorizado = config.numerosAutorizados.some(function(n) {
     return n.replace(/\s/g, '') === numeroLimpio;
   });
   if (!autorizado) return false;
-
-  // Verificar que el mensaje sea exactamente una de las frases permitidas
   var t = normalizar(texto);
   return config.frases.some(function(f) {
     return t === normalizar(f) || t.includes(normalizar(f));
@@ -731,7 +723,7 @@ client.on('message', async function(msg) {
     return;
   }
 
-  // ── Sector Base ──
+  // ── Sector Base ── ✅ Ahora responde remarcando el mensaje
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
   if (sectorDelGrupo === SECTOR_BASE) {
     if (!botActivo) return;
@@ -743,7 +735,8 @@ client.on('message', async function(msg) {
       if (lastReply[chatId] && ahoraSB - lastReply[chatId] < COOLDOWN) return;
       lastReply[chatId] = ahoraSB;
       await new Promise(function(resolve) { setTimeout(resolve, DELAY); });
-      await chat.sendMessage(AUTO_REPLY);
+      // ✅ Cambiado a msg.reply para remarcar el mensaje
+      await msg.reply(AUTO_REPLY);
       var nowSB = getHoraPeru();
       HISTORIAL.unshift({
         grupo: chat.name, sector: SECTOR_BASE,
@@ -890,7 +883,7 @@ app.get('/', function(req, res) {
       var tagManual = (esInact || esSectorX) ? '<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>' : '';
       var esSinRemarcarGrupo = esGrupoSinRemarcar(g.name);
       var tagComodin = esSinRemarcarGrupo ? '<span style="font-size:10px;color:#9b59b6"> 🔇</span>' : '';
-      var tagBase = esBaseSector ? '<span style="font-size:10px;color:#e67e22"> 🔒 número fijo</span>' : '';
+      var tagBase = esBaseSector ? '<span style="font-size:10px;color:#e67e22"> 🔒</span>' : '';
       var opacidad = !sectorActivo ? 'opacity:0.45;' : '';
       return '<div class="grupo-item" data-nombre="' + g.name.toLowerCase() + '" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;' + opacidad + '">' +
         '<span style="font-size:13px;color:#444">' + g.name + fotoTag + tagManual + tagComodin + tagBase + cooldownInfo + '</span>' +
