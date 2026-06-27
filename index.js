@@ -63,7 +63,7 @@ const KEYWORDS_ESPECIALES = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
   'CARTAS RESTAURANTES': [
-    'ingrese','a tienda por favor','a tienda','tienda por favor','delivery','delivery a divino maestro',
+    'ingrese','a tienda por favor','pedido','a tienda','tienda por favor','delivery','delivery a divino maestro',
     'manden a tienda','uno a tienda','uno a huacachina','uno para huacachina',
     ...FRASES_MCGRILL_CARTAS
   ],
@@ -138,7 +138,7 @@ const KEYWORDS_GLOBALES = [
   '5 min','10 min','7 min','5min','10min','7min',
   'en 5 minutos','en 7 minutos','en 10 minutos',
   '5 minutos','7 minutos','10 minutos','amigo tengo pedido','buenas noches tengo pedido',
-  'confirmo pedido','confirmado','confirmado pedido',
+  'confirmo pedido','confirmado','confirmado pedido','venie',
   'una unidad','un motorizado','un box','un movil',
   'un delivery','delivery por favor','delivery porfa',
   'necesito delivery','manden delivery','me envia un delivery',
