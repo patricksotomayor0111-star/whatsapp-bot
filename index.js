@@ -39,6 +39,23 @@ const NUMEROS_IGNORADOS = [
 
 const NUMEROS_DUENO = ['51939610396','939610396'];
 
+// ✅ Configuración del Sector Base
+// Cada grupo tiene su número autorizado y sus frases permitidas
+const SECTOR_BASE_CONFIG = {
+  'REPORTES BOX DELIVERY': {
+    numerosAutorizados: [
+      '51960186738','960186738','51960 186 738','960 186 738'
+    ],
+    frases: ['pendiente recojo de cliente','pendiente compra de cliente']
+  },
+  'Hola': {
+    numerosAutorizados: [
+      '51910795590','910795590','51910 795 590','910 795 590'
+    ],
+    frases: ['pendiente recojo de cliente','pendiente compra de cliente']
+  }
+};
+
 const GRUPOS_FOTO = [
   'CANTONES - BOX DELIVERY',
   'CHIFA LIU BOX DELIVERY',
@@ -74,12 +91,8 @@ const KEYWORDS_ESPECIALES = {
   ],
   'MUELLE BOX DELIVERY': ['uno a huacachina','uno para huacachina'],
   'McGrill Restaurante BOX DELIVERY': [...FRASES_MCGRILL_CARTAS],
-  'THE CROWN BOX DELIVERY': [
-    'disculpe para que puedan venir por el delivery'
-  ],
-  'BOCHITOS BOX DELIVERY': [
-    'buenas tardes podrian enviarme un delivery porfa?'
-  ]
+  'THE CROWN BOX DELIVERY': ['disculpe para que puedan venir por el delivery'],
+  'BOCHITOS BOX DELIVERY': ['buenas tardes podrian enviarme un delivery porfa?']
 };
 
 const KEYWORDS_EXCLUIR = [
@@ -163,11 +176,9 @@ const SIEMPRE_INACTIVOS = [
 ];
 
 const GRUPO_GANANCIAS = ['GANANCIAS', 'GANANCIAS '];
-
 const SECTOR_COMODIN = 'Sector Comodin';
+const SECTOR_BASE = 'Sector Base';
 
-// ✅ Grupos que, aunque pertenecen a un sector con nombre propio (Sector La Angostura),
-// deben responder "sin remarcar" el mensaje (como hace el Sector Comodín).
 const GRUPOS_SIN_REMARCAR = [
   'Don Alejandro -BOX DELYBERY',
   'OCTAVIA LA ANGOSTURA - BOX DELIVERY',
@@ -186,7 +197,6 @@ const LOCALES_MAP = {
   'kaf': 'Kaffa Coffee', 'kaffa': 'Kaffa Coffee', 'kaffa coffee': 'Kaffa Coffee',
   'fla': 'Flamangos', 'flamangos': 'Flamangos',
   'mue': 'Muelle', 'muelle': 'Muelle',
-  'hol': 'Hola', 'hola': 'Hola',
   'the': 'The Crown', 'the crown': 'The Crown',
   'har': 'Harvest', 'harvest': 'Harvest',
   'ric': 'Ricos Protein', 'ricos protein': 'Ricos Protein',
@@ -237,6 +247,12 @@ const LOCALES_MAP = {
 };
 
 const SECTORES = {
+  'Sector Base': [
+    'REPORTES BOX DELIVERY',
+    'REPORTES BOX DELIVERY ',
+    'Hola',
+    'Hola '
+  ],
   'Sector PTB': [
     'CARTAS RESTAURANTES','LA BUMANGUESA BOX DELIVERY',
     'PEÑONETTI BOX DELIVERY','SHAWABURGUER BOX DELIVERY',
@@ -246,7 +262,7 @@ const SECTORES = {
     'KAFFA COFFEE BOX DELIVERY','MUELLE BOX DELIVERY','MUELLE BOX DELIVERY '
   ],
   'Sector San José': [
-    'Hola','THE CROWN BOX DELIVERY','HARVEST BOX DELIVERY',
+    'THE CROWN BOX DELIVERY','HARVEST BOX DELIVERY',
     'RICOS PROTEIN - BOX DELIVERY','AYABACA - BUMANGUESA II',
     'MISKY POLLERIA (dribox)','KAM LONG PEDIDOS','BOCHITOS BOX DELIVERY',
     'LAS NIEVES BOX DELIVERY','HELADERÍA EL PINGÜINO','MR. SUSHI BOX DELIVERY'
@@ -282,8 +298,7 @@ const SECTORES = {
     'DELIVERY BOX / LAGUNILLA'
   ],
   'Sector X (otros)': [
-    'DRIBOX 🏍️',
-    'Reporte Deliverys ICA!! 🏍️💨',
+    'DRIBOX 🏍️','Reporte Deliverys ICA!! 🏍️💨',
     'SERVICIO DELIVERY RUMI-WASI','GRUPO DE MOTORIZADOS'
   ]
 };
@@ -302,50 +317,34 @@ function normalizar(texto) {
     .trim();
 }
 
-// ✅ Detecta si el mensaje menciona una hora futura tipo "para las 13:45" / "a las 13:45" / "13:45"
-// y determina si esa hora está a más de 15 minutos de la hora actual (Perú/Lima).
-// Devuelve true si el mensaje debe BLOQUEARSE (hora futura a más de 15 min de distancia).
 function tieneHoraFuturaLejana(texto) {
   var t = normalizar(texto);
-  // Captura patrones como "13:45", "1:45 pm", "13.45", precedidos opcionalmente por "para las"/"a las"/"para"/"a"
   var regex = /(?:para\s+las\s+|a\s+las\s+|para\s+|a\s+)?\b([0-2]?[0-9])[:.h]([0-5][0-9])\s*(am|pm)?\b/g;
   var match;
   var ahora = getHoraPeru();
   var horaActualMin = ahora.getHours() * 60 + ahora.getMinutes();
-
   while ((match = regex.exec(t)) !== null) {
     var hh = parseInt(match[1], 10);
     var mm = parseInt(match[2], 10);
     var ampm = match[3];
-
     if (hh > 23 || mm > 59) continue;
-
     if (ampm === 'pm' && hh < 12) hh += 12;
     if (ampm === 'am' && hh === 12) hh = 0;
-
     var horaMencionadaMin = hh * 60 + mm;
     var diferencia = horaMencionadaMin - horaActualMin;
-
-    // Si la hora mencionada ya pasó (diferencia negativa o 0), no se considera "futura lejana"
-    if (diferencia > 15) {
-      return true; // Hora futura a más de 15 minutos: bloquear respuesta
-    }
+    if (diferencia > 15) return true;
   }
   return false;
 }
 
 function tieneExclusion(texto) {
   var t = normalizar(texto);
-  return KEYWORDS_EXCLUIR.some(function(k) {
-    return t.includes(normalizar(k));
-  });
+  return KEYWORDS_EXCLUIR.some(function(k) { return t.includes(normalizar(k)); });
 }
 
 function tieneKeywordPositiva(texto) {
   var t = normalizar(texto);
-  return KEYWORDS_GLOBALES.some(function(k) {
-    return t.includes(normalizar(k));
-  });
+  return KEYWORDS_GLOBALES.some(function(k) { return t.includes(normalizar(k)); });
 }
 
 function buscarKeywordEspecial(texto, nombreGrupo) {
@@ -371,11 +370,10 @@ function getSectorDeGrupo(nombreGrupo) {
   return 'Sector X (otros)';
 }
 
-// ✅ Determina si un grupo debe responder "sin remarcar" el mensaje (mensaje suelto),
-// ya sea porque está en el Sector Comodín o porque está en la lista GRUPOS_SIN_REMARCAR.
 function esGrupoSinRemarcar(nombreGrupo) {
   var sector = getSectorDeGrupo(nombreGrupo);
   if (sector === SECTOR_COMODIN) return true;
+  if (sector === SECTOR_BASE) return true;
   return GRUPOS_SIN_REMARCAR.some(function(n) {
     return n.trim().toLowerCase() === nombreGrupo.trim().toLowerCase();
   });
@@ -384,6 +382,32 @@ function esGrupoSinRemarcar(nombreGrupo) {
 function esGrupoGanancias(nombreGrupo) {
   return GRUPO_GANANCIAS.some(function(n) {
     return n.trim().toLowerCase() === nombreGrupo.trim().toLowerCase();
+  });
+}
+
+// ✅ Verifica si el mensaje en un grupo del Sector Base debe procesarse
+function procesarMensajeSectorBase(nombreGrupo, numero, texto) {
+  var config = null;
+  var keys = Object.keys(SECTOR_BASE_CONFIG);
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].trim().toLowerCase() === nombreGrupo.trim().toLowerCase()) {
+      config = SECTOR_BASE_CONFIG[keys[i]];
+      break;
+    }
+  }
+  if (!config) return false;
+
+  // Verificar que el número sea el autorizado
+  var numeroLimpio = numero.replace(/\s/g, '');
+  var autorizado = config.numerosAutorizados.some(function(n) {
+    return n.replace(/\s/g, '') === numeroLimpio;
+  });
+  if (!autorizado) return false;
+
+  // Verificar que el mensaje sea exactamente una de las frases permitidas
+  var t = normalizar(texto);
+  return config.frases.some(function(f) {
+    return t === normalizar(f) || t.includes(normalizar(f));
   });
 }
 
@@ -409,9 +433,7 @@ function loadGanancias() {
   return { fecha: getHoraPeru().toLocaleDateString('es-PE'), ganancias: 0, gastos: 0 };
 }
 
-function saveGanancias(data) {
-  fs.writeFileSync(GANANCIAS_FILE, JSON.stringify(data));
-}
+function saveGanancias(data) { fs.writeFileSync(GANANCIAS_FILE, JSON.stringify(data)); }
 
 function loadReporte() {
   try {
@@ -420,9 +442,7 @@ function loadReporte() {
   return { semana_inicio: getFechaLunesActual(), locales: {}, gastos: {}, localesHoy: {}, gastosHoy: {} };
 }
 
-function saveReporte(data) {
-  fs.writeFileSync(REPORTE_FILE, JSON.stringify(data));
-}
+function saveReporte(data) { fs.writeFileSync(REPORTE_FILE, JSON.stringify(data)); }
 
 function getFechaLunesActual() {
   var hoy = getHoraPeru();
@@ -515,11 +535,8 @@ function loadConfig() {
 
 function saveConfig() {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify({
-    botActivo: botActivo,
-    gruposActivos: GRUPOS_ACTIVOS,
-    gruposCache: GRUPOS_CACHE,
-    sectoresApagados: SECTORES_APAGADOS,
-    delay: DELAY
+    botActivo: botActivo, gruposActivos: GRUPOS_ACTIVOS,
+    gruposCache: GRUPOS_CACHE, sectoresApagados: SECTORES_APAGADOS, delay: DELAY
   }));
 }
 
@@ -671,8 +688,8 @@ client.on('message', async function(msg) {
   var texto = msg.body || '';
   var contacto = await msg.getContact();
   var numero = contacto.id.user || (msg.author ? msg.author : msg.from).replace(/@.*/, '').replace(/[^0-9]/g, '');
-  if (NUMEROS_IGNORADOS.includes(numero)) return;
 
+  // ── Grupo GANANCIAS ──
   if (esGrupoGanancias(chat.name)) {
     if (msg.fromMe) return;
     if (texto.trim().toLowerCase() === 'reset') {
@@ -714,20 +731,44 @@ client.on('message', async function(msg) {
     return;
   }
 
-  if (!botActivo) return;
-  var chatId = chat.id._serialized;
-  if (!GRUPOS_ACTIVOS.includes(chatId)) return;
+  // ── Sector Base ──
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
-  if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
+  if (sectorDelGrupo === SECTOR_BASE) {
+    if (!botActivo) return;
+    var chatId = chat.id._serialized;
+    if (!GRUPOS_ACTIVOS.includes(chatId)) return;
+    if (SECTORES_APAGADOS.includes(SECTOR_BASE)) return;
+    if (procesarMensajeSectorBase(chat.name, numero, texto)) {
+      var ahoraSB = Date.now();
+      if (lastReply[chatId] && ahoraSB - lastReply[chatId] < COOLDOWN) return;
+      lastReply[chatId] = ahoraSB;
+      await new Promise(function(resolve) { setTimeout(resolve, DELAY); });
+      await chat.sendMessage(AUTO_REPLY);
+      var nowSB = getHoraPeru();
+      HISTORIAL.unshift({
+        grupo: chat.name, sector: SECTOR_BASE,
+        mensaje: texto.substring(0, 80),
+        fecha: nowSB.toLocaleDateString('es-PE'), hora: nowSB.toLocaleTimeString('es-PE')
+      });
+      saveHistorial();
+      enviarNotificacion(chat.name, nowSB.toLocaleTimeString('es-PE'));
+      botActivo = false; saveConfig();
+    }
+    return;
+  }
 
-  // ✅ Si el mensaje menciona una hora futura a más de 15 minutos de distancia, no responder
+  // ── Bot principal ──
+  if (NUMEROS_IGNORADOS.includes(numero)) return;
+  if (!botActivo) return;
+  var chatIdP = chat.id._serialized;
+  if (!GRUPOS_ACTIVOS.includes(chatIdP)) return;
+  if (SECTORES_APAGADOS.includes(sectorDelGrupo)) return;
   if (esTexto && tieneHoraFuturaLejana(texto)) return;
 
   var esFotoGrupo = GRUPOS_FOTO.some(function(n) { return chat.name.toLowerCase().includes(n.toLowerCase()); });
   var nombreGrupoNorm = chat.name.trim().toLowerCase();
   var esPrioritario = GRUPOS_PRIORITARIOS.includes(nombreGrupoNorm);
-  var esComodin = esGrupoSinRemarcar(chat.name);
-
+  var esSinRemarcar = esGrupoSinRemarcar(chat.name);
   var tieneKeyword = false;
 
   if (esPrioritario) {
@@ -740,22 +781,17 @@ client.on('message', async function(msg) {
   } else {
     if (tieneExclusion(texto)) return;
     tieneKeyword = tieneKeywordPositiva(texto);
-    if (!tieneKeyword) {
-      tieneKeyword = buscarKeywordEspecial(texto, chat.name.trim());
-    }
+    if (!tieneKeyword) tieneKeyword = buscarKeywordEspecial(texto, chat.name.trim());
   }
 
   if (!tieneKeyword && !(esFoto && esFotoGrupo)) return;
 
   var ahora = Date.now();
-  if (lastReply[chatId] && ahora - lastReply[chatId] < COOLDOWN) return;
-  lastReply[chatId] = ahora;
-
+  if (lastReply[chatIdP] && ahora - lastReply[chatIdP] < COOLDOWN) return;
+  lastReply[chatIdP] = ahora;
   await new Promise(function(resolve) { setTimeout(resolve, DELAY); });
 
-  // ✅ Sector Comodin (y grupos en GRUPOS_SIN_REMARCAR): responde sin remarcar (mensaje suelto)
-  // Resto de sectores: responde remarcando el mensaje original
-  if (esComodin) {
+  if (esSinRemarcar) {
     await chat.sendMessage(AUTO_REPLY);
   } else {
     await msg.reply(AUTO_REPLY);
@@ -794,8 +830,8 @@ app.get('/historial', function(req, res) {
       }).join('');
   res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Historial</title></head>' +
     '<body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px">' +
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px"><a href="/" style="text-decoration:none;font-size:22px">←</a><h2 style="margin:0">📋 Historial de respuestas</h2></div>' +
-    '<p style="color:#888;font-size:13px;margin-bottom:16px">Total: <b>' + HISTORIAL.length + '</b> respuestas automaticas</p>' +
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px"><a href="/" style="text-decoration:none;font-size:22px">←</a><h2 style="margin:0">📋 Historial</h2></div>' +
+    '<p style="color:#888;font-size:13px;margin-bottom:16px">Total: <b>' + HISTORIAL.length + '</b> respuestas</p>' +
     '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;border:1px solid #eee"><thead><tr style="background:#25D366;color:white">' +
     '<th style="padding:10px 8px;text-align:left;font-size:13px">Fecha / Hora</th><th style="padding:10px 8px;text-align:left;font-size:13px">Grupo</th>' +
     '<th style="padding:10px 8px;text-align:left;font-size:13px">Sector</th><th style="padding:10px 8px;text-align:left;font-size:13px">Mensaje</th>' +
@@ -815,14 +851,7 @@ app.post('/cerrar-sesion', async function(req, res) {
 
 app.post('/ajustes', function(req, res) {
   var nuevoDelay = parseInt(req.body.delay);
-  if (!isNaN(nuevoDelay) && nuevoDelay >= 100 && nuevoDelay <= 1000) {
-    DELAY = nuevoDelay;
-    saveConfig();
-  }
-  res.json({ delay: DELAY });
-});
-
-app.get('/ajustes', function(req, res) {
+  if (!isNaN(nuevoDelay) && nuevoDelay >= 100 && nuevoDelay <= 1000) { DELAY = nuevoDelay; saveConfig(); }
   res.json({ delay: DELAY });
 });
 
@@ -847,6 +876,8 @@ app.get('/', function(req, res) {
     var grupos = porSector[sector];
     if (grupos.length === 0) return;
     var sectorActivo = !SECTORES_APAGADOS.includes(sector);
+    var esComodinSector = sector === SECTOR_COMODIN;
+    var esBaseSector = sector === SECTOR_BASE;
     var gruposDelSector = grupos.map(function(g) {
       var activo = GRUPOS_ACTIVOS.includes(g.id);
       var ahora = Date.now();
@@ -858,17 +889,18 @@ app.get('/', function(req, res) {
       var esInact = SIEMPRE_INACTIVOS.some(function(n) { return g.name.toLowerCase().includes(n.toLowerCase()); });
       var tagManual = (esInact || esSectorX) ? '<span style="font-size:10px;color:#e74c3c"> ⚠️ manual</span>' : '';
       var esSinRemarcarGrupo = esGrupoSinRemarcar(g.name);
-      var tagComodin = esSinRemarcarGrupo ? '<span style="font-size:10px;color:#9b59b6"> 🔇 sin remarcar</span>' : '';
+      var tagComodin = esSinRemarcarGrupo ? '<span style="font-size:10px;color:#9b59b6"> 🔇</span>' : '';
+      var tagBase = esBaseSector ? '<span style="font-size:10px;color:#e67e22"> 🔒 número fijo</span>' : '';
       var opacidad = !sectorActivo ? 'opacity:0.45;' : '';
       return '<div class="grupo-item" data-nombre="' + g.name.toLowerCase() + '" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;' + opacidad + '">' +
-        '<span style="font-size:13px;color:#444">' + g.name + fotoTag + tagManual + tagComodin + cooldownInfo + '</span>' +
+        '<span style="font-size:13px;color:#444">' + g.name + fotoTag + tagManual + tagComodin + tagBase + cooldownInfo + '</span>' +
         '<button onclick="toggleGrupo(\'' + g.id + '\')" style="padding:5px 14px;border-radius:20px;border:none;background:' + (activo?'#25D366':'#ccc') + ';color:white;cursor:pointer;font-size:12px">' +
         (activo?'Activo':'Inactivo') + '</button></div>';
     }).join('');
-    var esComodinSector = sector === SECTOR_COMODIN;
+    var labelSector = sector + (esComodinSector ? ' 🔇' : '') + (esBaseSector ? ' 🔒' : '');
     sectoresHtml += '<div class="sector-card" style="margin-bottom:16px;border:2px solid ' + (sectorActivo?'#e0e0e0':'#e74c3c') + ';border-radius:12px;overflow:hidden">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:' + (sectorActivo?'#f7f7f7':'#fdecea') + '">' +
-      '<span style="font-weight:600;font-size:15px">📍 ' + sector + (esComodinSector ? ' 🔇' : '') + '</span>' +
+      '<span style="font-weight:600;font-size:15px">📍 ' + labelSector + '</span>' +
       '<button onclick="toggleSector(\'' + sector + '\')" style="padding:6px 16px;border-radius:20px;border:none;background:' + (sectorActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:13px">' +
       (sectorActivo?'Sector ON ✅':'Sector OFF ⛔') + '</button></div>' +
       '<div class="sector-grupos">' + gruposDelSector + '</div></div>';
@@ -881,7 +913,6 @@ app.get('/', function(req, res) {
   var ganColor = totalLiquido >= 0 ? '#e8f5e9' : '#fdecea';
   var emojiLiquido = totalLiquido >= 0 ? '🤑' : '😬';
 
-  // Generar opciones del selector de delay
   var delayOpciones = '';
   for (var ms = 100; ms <= 1000; ms += 100) {
     delayOpciones += '<option value="' + ms + '"' + (DELAY === ms ? ' selected' : '') + '>' + ms + ' ms</option>';
@@ -896,21 +927,15 @@ app.get('/', function(req, res) {
     '<div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">' +
     '<a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">📋 Historial <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a>' +
     '<button onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}" style="width:100%;padding:10px 14px;font-size:15px;text-align:left;border:none;border-radius:8px;background:white;color:#e74c3c;cursor:pointer;margin-top:4px">🚪 Cerrar sesión (escanear QR nuevo)</button></div>' +
-
-    // ✅ SECCIÓN DE AJUSTES
     '<div style="padding:14px;background:#f0f4ff;border-radius:10px;margin-bottom:12px">' +
     '<div style="font-weight:600;font-size:14px;margin-bottom:10px">⚙️ Ajustes</div>' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-    '<label style="font-size:13px;color:#555">⏱ Delay de respuesta:</label>' +
+    '<label style="font-size:13px;color:#555">⏱ Delay:</label>' +
     '<select id="delaySelect" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white">' +
-    delayOpciones +
-    '</select>' +
-    '<button onclick="guardarDelay()" style="padding:6px 14px;border-radius:8px;border:none;background:#3498db;color:white;cursor:pointer;font-size:13px">Guardar</button>' +
+    delayOpciones + '</select>' +
+    '<button onclick="guardarDelay()" style="padding:6px 14px;border-radius:8px;border:none;background:#3498db;color:white;cursor:pointer;font-size:13px">Guardar</button></div>' +
+    '<p style="color:#888;font-size:11px;margin-top:6px;margin-bottom:0">🔇 = sin remarcar | 🔒 = solo número autorizado | ⏰ = hora futura bloqueada</p>' +
     '</div>' +
-    '<p style="color:#888;font-size:11px;margin-top:6px;margin-bottom:0">🔇 Sector Comodín (y Don Alejandro, Octavia, Fidel) responden sin remarcar el mensaje</p>' +
-    '<p style="color:#888;font-size:11px;margin-top:4px;margin-bottom:0">⏰ Si mencionan una hora "para las X:XX" a más de 15 min de la hora actual (Perú), el bot no responde</p>' +
-    '</div>' +
-
     '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8">' +
     '<div>✅ <b>GANANCIAS:</b> Total hoy: ' + ganData.ganancias + ' soles</div>' +
     '<div>📉 <b>GASTOS:</b> Total hoy: -' + ganData.gastos + ' soles</div>' +
@@ -919,7 +944,6 @@ app.get('/', function(req, res) {
     '<span style="font-weight:bold;font-size:16px">Bot ' + (botActivo?'✅ Activo':'⛔ Inactivo') + '</span>' +
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' + (botActivo?'Desactivar':'Activar') + '</button></div>' +
     '<p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"' + AUTO_REPLY + '"</b> | Se apaga solo al responder</p>' +
-    '<p style="color:#888;font-size:11px">📸 = fotos | ⚠️ manual = solo activacion manual | 🔇 = sin remarcar | Sector OFF = bloquea todo el sector</p>' +
     '<div style="margin-bottom:14px">' +
     '<input id="buscador" type="text" placeholder="🔍 Buscar grupo..." oninput="buscarGrupo(this.value)" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;box-sizing:border-box"/>' +
     '</div>' +
@@ -933,29 +957,8 @@ app.get('/', function(req, res) {
     'async function toggleBot(){await fetch("/toggle",{method:"POST"});location.reload();}' +
     'async function toggleGrupo(id){await fetch("/grupo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});location.reload();}' +
     'async function toggleSector(sector){await fetch("/sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sector:sector})});location.reload();}' +
-    'async function guardarDelay(){' +
-    '  var val = parseInt(document.getElementById("delaySelect").value);' +
-    '  await fetch("/ajustes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({delay:val})});' +
-    '  var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;right:16px;background:#3498db;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999";' +
-    '  t.textContent="✅ Delay guardado: "+val+"ms";document.body.appendChild(t);setTimeout(function(){t.remove()},2500);' +
-    '}' +
-    'function buscarGrupo(q){' +
-    '  var query = q.toLowerCase().trim();' +
-    '  var cards = document.querySelectorAll(".sector-card");' +
-    '  var totalVisible = 0;' +
-    '  cards.forEach(function(card){' +
-    '    var items = card.querySelectorAll(".grupo-item");' +
-    '    var hayVisible = false;' +
-    '    items.forEach(function(item){' +
-    '      var nombre = item.getAttribute("data-nombre") || "";' +
-    '      var mostrar = query === "" || nombre.includes(query);' +
-    '      item.style.display = mostrar ? "flex" : "none";' +
-    '      if(mostrar){ hayVisible = true; totalVisible++; }' +
-    '    });' +
-    '    card.style.display = (query === "" || hayVisible) ? "block" : "none";' +
-    '  });' +
-    '  document.getElementById("titulo-grupos").textContent = query ? "Resultados: " + totalVisible + " grupo(s)" : "Grupos (' + GRUPOS_CACHE.length + ')";' +
-    '}' +
+    'async function guardarDelay(){var val=parseInt(document.getElementById("delaySelect").value);await fetch("/ajustes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({delay:val})});var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;right:16px;background:#3498db;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999";t.textContent="✅ Delay: "+val+"ms";document.body.appendChild(t);setTimeout(function(){t.remove()},2500);}' +
+    'function buscarGrupo(q){var query=q.toLowerCase().trim();var cards=document.querySelectorAll(".sector-card");var totalVisible=0;cards.forEach(function(card){var items=card.querySelectorAll(".grupo-item");var hayVisible=false;items.forEach(function(item){var nombre=item.getAttribute("data-nombre")||"";var mostrar=query===""||nombre.includes(query);item.style.display=mostrar?"flex":"none";if(mostrar){hayVisible=true;totalVisible++;}});card.style.display=(query===""||hayVisible)?"block":"none";});document.getElementById("titulo-grupos").textContent=query?"Resultados: "+totalVisible+" grupo(s)":"Grupos (' + GRUPOS_CACHE.length + ')";}' +
     '</script></body></html>');
 });
 
