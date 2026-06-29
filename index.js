@@ -10,6 +10,7 @@ const CONFIG_FILE = '/tmp/config.json';
 const HISTORIAL_FILE = '/tmp/historial.json';
 const GANANCIAS_FILE = '/tmp/ganancias.json';
 const REPORTE_FILE = '/tmp/reporte_semanal.json';
+const KEYWORDS_FILE = '/tmp/keywords.json';
 
 const NUMEROS_IGNORADOS = [
   '272984178720993',
@@ -74,7 +75,7 @@ const FRASES_MCGRILL_CARTAS = [
   'alguien disponible'
 ];
 
-const KEYWORDS_ESPECIALES = {
+const KEYWORDS_ESPECIALES_BASE = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'BUBATON BOX DELIVERY': ['ingrese'],
   'CARTAS RESTAURANTES': [
@@ -93,7 +94,7 @@ const KEYWORDS_ESPECIALES = {
   'BOCHITOS BOX DELIVERY': ['buenas tardes podrian enviarme un delivery porfa?']
 };
 
-const KEYWORDS_EXCLUIR = [
+const KEYWORDS_EXCLUIR_BASE = [
   'cuanto','cuánto','precio','costo','tarifa','cobran','cobras','Makro','plaza vea','tottus','compra',
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
@@ -137,7 +138,7 @@ const KEYWORDS_EXCLUIR = [
   'ya puede recoger','compra','alguien disponible'
 ];
 
-const KEYWORDS_GLOBALES = [
+const KEYWORDS_GLOBALES_BASE = [
   'box','moto','motorizado','unidad','movil','movilidad','recoger','deli','dely',
   'pedido listo','tenemos pedido','hay pedido','pedido en camino',
   'ya esta listo el pedido','pedido listo en','venir',
@@ -303,6 +304,29 @@ const SECTORES = {
 
 const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
+// ── Keywords dinámicas ──────────────────────────────────────────────
+function loadKeywords() {
+  try {
+    if (fs.existsSync(KEYWORDS_FILE)) return JSON.parse(fs.readFileSync(KEYWORDS_FILE, 'utf8'));
+  } catch(e) {}
+  return { globales: [], excluir: [], especiales: {} };
+}
+
+function saveKeywords(data) { fs.writeFileSync(KEYWORDS_FILE, JSON.stringify(data)); }
+
+var KW = loadKeywords();
+
+// Combina base hardcodeada + dinámicas
+function getKeywordsGlobales() { return KEYWORDS_GLOBALES_BASE.concat(KW.globales); }
+function getKeywordsExcluir() { return KEYWORDS_EXCLUIR_BASE.concat(KW.excluir); }
+function getKeywordsEspeciales(nombreGrupo) {
+  var base = KEYWORDS_ESPECIALES_BASE[nombreGrupo] || [];
+  var dinamicas = (KW.especiales && KW.especiales[nombreGrupo]) || [];
+  return base.concat(dinamicas);
+}
+
+// ────────────────────────────────────────────────────────────────────
+
 function getHoraPeru() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }));
 }
@@ -337,17 +361,17 @@ function tieneHoraFuturaLejana(texto) {
 
 function tieneExclusion(texto) {
   var t = normalizar(texto);
-  return KEYWORDS_EXCLUIR.some(function(k) { return t.includes(normalizar(k)); });
+  return getKeywordsExcluir().some(function(k) { return t.includes(normalizar(k)); });
 }
 
 function tieneKeywordPositiva(texto) {
   var t = normalizar(texto);
-  return KEYWORDS_GLOBALES.some(function(k) { return t.includes(normalizar(k)); });
+  return getKeywordsGlobales().some(function(k) { return t.includes(normalizar(k)); });
 }
 
 function buscarKeywordEspecial(texto, nombreGrupo) {
-  var lista = KEYWORDS_ESPECIALES[nombreGrupo];
-  if (!lista) return false;
+  var lista = getKeywordsEspeciales(nombreGrupo);
+  if (!lista || lista.length === 0) return false;
   var t = normalizar(texto);
   return lista.some(function(k) {
     var kn = normalizar(k);
@@ -723,7 +747,7 @@ client.on('message', async function(msg) {
     return;
   }
 
-  // ── Sector Base ── ✅ Ahora responde remarcando el mensaje
+  // ── Sector Base ──
   var sectorDelGrupo = getSectorDeGrupo(chat.name);
   if (sectorDelGrupo === SECTOR_BASE) {
     if (!botActivo) return;
@@ -735,7 +759,6 @@ client.on('message', async function(msg) {
       if (lastReply[chatId] && ahoraSB - lastReply[chatId] < COOLDOWN) return;
       lastReply[chatId] = ahoraSB;
       await new Promise(function(resolve) { setTimeout(resolve, DELAY); });
-      // ✅ Cambiado a msg.reply para remarcar el mensaje
       await msg.reply(AUTO_REPLY);
       var nowSB = getHoraPeru();
       HISTORIAL.unshift({
@@ -801,6 +824,7 @@ client.on('message', async function(msg) {
   botActivo = false; saveConfig();
 });
 
+// ── SSE ──
 app.get('/eventos', function(req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -810,6 +834,7 @@ app.get('/eventos', function(req, res) {
   req.on('close', function() { sseClients = sseClients.filter(function(c) { return c !== res; }); });
 });
 
+// ── Historial ──
 app.get('/historial', function(req, res) {
   var filas = HISTORIAL.length === 0
     ? '<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Sin registros aun</td></tr>'
@@ -835,6 +860,7 @@ app.get('/historial', function(req, res) {
 
 app.delete('/historial', function(req, res) { HISTORIAL = []; saveHistorial(); res.json({ ok: true }); });
 
+// ── Cerrar sesión ──
 app.post('/cerrar-sesion', async function(req, res) {
   try { isReady = false; botActivo = false; saveConfig(); await client.logout(); } catch(e) {}
   try { var sp = './.wwebjs_auth'; if (fs.existsSync(sp)) fs.rmSync(sp, { recursive: true, force: true }); } catch(e) {}
@@ -842,12 +868,72 @@ app.post('/cerrar-sesion', async function(req, res) {
   res.json({ ok: true });
 });
 
+// ── Ajustes (delay) ──
 app.post('/ajustes', function(req, res) {
   var nuevoDelay = parseInt(req.body.delay);
   if (!isNaN(nuevoDelay) && nuevoDelay >= 100 && nuevoDelay <= 1000) { DELAY = nuevoDelay; saveConfig(); }
   res.json({ delay: DELAY });
 });
 
+// ── ENDPOINTS KEYWORDS DINÁMICAS ────────────────────────────────────
+
+// GET: devuelve el estado actual de keywords dinámicas
+app.get('/keywords', function(req, res) {
+  res.json(KW);
+});
+
+// POST /keywords/global  { accion: 'agregar'|'quitar', keyword: '...' }
+app.post('/keywords/global', function(req, res) {
+  var kw = (req.body.keyword || '').trim();
+  var accion = req.body.accion;
+  if (!kw) return res.status(400).json({ error: 'keyword vacía' });
+  KW = loadKeywords();
+  if (accion === 'agregar') {
+    if (!KW.globales.includes(kw)) KW.globales.push(kw);
+  } else if (accion === 'quitar') {
+    KW.globales = KW.globales.filter(function(k) { return k !== kw; });
+  }
+  saveKeywords(KW);
+  res.json({ ok: true, globales: KW.globales });
+});
+
+// POST /keywords/excluir  { accion: 'agregar'|'quitar', keyword: '...' }
+app.post('/keywords/excluir', function(req, res) {
+  var kw = (req.body.keyword || '').trim();
+  var accion = req.body.accion;
+  if (!kw) return res.status(400).json({ error: 'keyword vacía' });
+  KW = loadKeywords();
+  if (accion === 'agregar') {
+    if (!KW.excluir.includes(kw)) KW.excluir.push(kw);
+  } else if (accion === 'quitar') {
+    KW.excluir = KW.excluir.filter(function(k) { return k !== kw; });
+  }
+  saveKeywords(KW);
+  res.json({ ok: true, excluir: KW.excluir });
+});
+
+// POST /keywords/especial  { accion: 'agregar'|'quitar', grupo: '...', keyword: '...' }
+app.post('/keywords/especial', function(req, res) {
+  var kw = (req.body.keyword || '').trim();
+  var grupo = (req.body.grupo || '').trim();
+  var accion = req.body.accion;
+  if (!kw || !grupo) return res.status(400).json({ error: 'keyword o grupo vacío' });
+  KW = loadKeywords();
+  if (!KW.especiales) KW.especiales = {};
+  if (!KW.especiales[grupo]) KW.especiales[grupo] = [];
+  if (accion === 'agregar') {
+    if (!KW.especiales[grupo].includes(kw)) KW.especiales[grupo].push(kw);
+  } else if (accion === 'quitar') {
+    KW.especiales[grupo] = KW.especiales[grupo].filter(function(k) { return k !== kw; });
+    if (KW.especiales[grupo].length === 0) delete KW.especiales[grupo];
+  }
+  saveKeywords(KW);
+  res.json({ ok: true, especiales: KW.especiales });
+});
+
+// ────────────────────────────────────────────────────────────────────
+
+// ── Panel principal ──
 app.get('/', function(req, res) {
   if (!isReady) {
     if (!qrCodeData) return res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>⏳ Iniciando...</h2><p>Recarga en unos segundos</p><script>setTimeout(function(){location.reload()},4000)</script></body></html>');
@@ -906,6 +992,38 @@ app.get('/', function(req, res) {
   var ganColor = totalLiquido >= 0 ? '#e8f5e9' : '#fdecea';
   var emojiLiquido = totalLiquido >= 0 ? '🤑' : '😬';
 
+  // Keywords dinámicas actuales para mostrar en panel
+  var kwActual = loadKeywords();
+  var kwGlobalesHtml = (kwActual.globales || []).map(function(k) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:16px;padding:3px 10px;font-size:12px;color:#2e7d32;margin:3px">' +
+      k + '<button onclick="quitarKw(\'global\',\'' + k.replace(/'/g,"\\'") + '\')" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';
+  }).join('') || '<span style="color:#aaa;font-size:12px">Sin keywords extras</span>';
+
+  var kwExcluirHtml = (kwActual.excluir || []).map(function(k) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fdecea;border:1px solid #ef9a9a;border-radius:16px;padding:3px 10px;font-size:12px;color:#c62828;margin:3px">' +
+      k + '<button onclick="quitarKw(\'excluir\',\'' + k.replace(/'/g,"\\'") + '\')" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';
+  }).join('') || '<span style="color:#aaa;font-size:12px">Sin keywords extras</span>';
+
+  var kwEspecialesHtml = '';
+  var gruposConEspeciales = Object.keys(kwActual.especiales || {});
+  if (gruposConEspeciales.length === 0) {
+    kwEspecialesHtml = '<span style="color:#aaa;font-size:12px">Sin keywords extras por grupo</span>';
+  } else {
+    gruposConEspeciales.forEach(function(grupo) {
+      kwEspecialesHtml += '<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px">📌 ' + grupo + '</div>';
+      kwEspecialesHtml += (kwActual.especiales[grupo] || []).map(function(k) {
+        return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3e0;border:1px solid #ffcc80;border-radius:16px;padding:3px 10px;font-size:12px;color:#e65100;margin:2px">' +
+          k + '<button onclick="quitarKwEspecial(\'' + grupo.replace(/'/g,"\\'") + '\',\'' + k.replace(/'/g,"\\'") + '\')" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';
+      }).join('');
+      kwEspecialesHtml += '</div>';
+    });
+  }
+
+  // Opciones de grupos para el select de keywords especiales
+  var gruposSelectOpts = GRUPOS_CACHE.map(function(g) {
+    return '<option value="' + g.name.replace(/"/g,'&quot;') + '">' + g.name + '</option>';
+  }).join('');
+
   var delayOpciones = '';
   for (var ms = 100; ms <= 1000; ms += 100) {
     delayOpciones += '<option value="' + ms + '"' + (DELAY === ms ? ' selected' : '') + '>' + ms + ' ms</option>';
@@ -914,12 +1032,17 @@ app.get('/', function(req, res) {
   res.send('<!DOCTYPE html><html><head>' +
     '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Bot</title>' +
     '</head><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">' +
+
+    // ── Header ──
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
     '<h2 style="margin:0">🤖 WhatsApp Bot</h2>' +
     '<button onclick="document.getElementById(\'menu\').classList.toggle(\'hidden\')" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>' +
+
     '<div id="menu" class="hidden" style="background:#f0f0f0;border-radius:10px;padding:10px;margin-bottom:16px">' +
     '<a href="/historial" style="display:block;padding:10px 14px;font-size:15px;text-decoration:none;color:#333;border-radius:8px;background:white;margin-bottom:6px">📋 Historial <span style="color:#888;font-size:12px">(' + HISTORIAL.length + ')</span></a>' +
     '<button onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}" style="width:100%;padding:10px 14px;font-size:15px;text-align:left;border:none;border-radius:8px;background:white;color:#e74c3c;cursor:pointer;margin-top:4px">🚪 Cerrar sesión (escanear QR nuevo)</button></div>' +
+
+    // ── Ajustes delay ──
     '<div style="padding:14px;background:#f0f4ff;border-radius:10px;margin-bottom:12px">' +
     '<div style="font-weight:600;font-size:14px;margin-bottom:10px">⚙️ Ajustes</div>' +
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
@@ -929,32 +1052,129 @@ app.get('/', function(req, res) {
     '<button onclick="guardarDelay()" style="padding:6px 14px;border-radius:8px;border:none;background:#3498db;color:white;cursor:pointer;font-size:13px">Guardar</button></div>' +
     '<p style="color:#888;font-size:11px;margin-top:6px;margin-bottom:0">🔇 = sin remarcar | 🔒 = solo número autorizado | ⏰ = hora futura bloqueada</p>' +
     '</div>' +
+
+    // ── SECCIÓN KEYWORDS ──────────────────────────────────────────────
+    '<div style="border:2px solid #e0e0e0;border-radius:12px;overflow:hidden;margin-bottom:16px">' +
+
+    // Cabecera colapsable
+    '<div onclick="document.getElementById(\'kwPanel\').classList.toggle(\'hidden\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f7f7f7;cursor:pointer">' +
+    '<span style="font-weight:600;font-size:15px">🔑 Keywords dinámicas</span>' +
+    '<span style="font-size:18px;color:#888">＋</span></div>' +
+
+    '<div id="kwPanel" class="hidden" style="padding:14px">' +
+
+    // Keywords globales
+    '<div style="margin-bottom:16px">' +
+    '<div style="font-weight:600;font-size:13px;color:#2e7d32;margin-bottom:6px">✅ Globales (activan el bot)</div>' +
+    '<div id="kwGlobalesWrap" style="margin-bottom:8px">' + kwGlobalesHtml + '</div>' +
+    '<div style="display:flex;gap:6px">' +
+    '<input id="kwGlobalInput" type="text" placeholder="Nueva keyword..." style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px"/>' +
+    '<button onclick="agregarKw(\'global\')" style="padding:7px 14px;border-radius:8px;border:none;background:#25D366;color:white;cursor:pointer;font-size:13px">+ Agregar</button>' +
+    '</div></div>' +
+
+    // Keywords excluir
+    '<div style="margin-bottom:16px">' +
+    '<div style="font-weight:600;font-size:13px;color:#c62828;margin-bottom:6px">🚫 Excluidas (bloquean la respuesta)</div>' +
+    '<div id="kwExcluirWrap" style="margin-bottom:8px">' + kwExcluirHtml + '</div>' +
+    '<div style="display:flex;gap:6px">' +
+    '<input id="kwExcluirInput" type="text" placeholder="Nueva keyword a excluir..." style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px"/>' +
+    '<button onclick="agregarKw(\'excluir\')" style="padding:7px 14px;border-radius:8px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:13px">+ Agregar</button>' +
+    '</div></div>' +
+
+    // Keywords especiales por grupo
+    '<div>' +
+    '<div style="font-weight:600;font-size:13px;color:#e65100;margin-bottom:6px">📌 Especiales por grupo</div>' +
+    '<div id="kwEspecialesWrap" style="margin-bottom:8px">' + kwEspecialesHtml + '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:6px">' +
+    '<select id="kwEspecialGrupo" style="padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white">' +
+    '<option value="">— Selecciona un grupo —</option>' + gruposSelectOpts + '</select>' +
+    '<div style="display:flex;gap:6px">' +
+    '<input id="kwEspecialInput" type="text" placeholder="Keyword para ese grupo..." style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px"/>' +
+    '<button onclick="agregarKwEspecial()" style="padding:7px 14px;border-radius:8px;border:none;background:#e67e22;color:white;cursor:pointer;font-size:13px">+ Agregar</button>' +
+    '</div></div></div>' +
+
+    '</div></div>' + // cierra kwPanel y sección keywords
+    // ─────────────────────────────────────────────────────────────────
+
+    // ── Ganancias ──
     '<div style="padding:14px;background:' + ganColor + ';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8">' +
     '<div>✅ <b>GANANCIAS:</b> Total hoy: ' + ganData.ganancias + ' soles</div>' +
     '<div>📉 <b>GASTOS:</b> Total hoy: -' + ganData.gastos + ' soles</div>' +
     '<div><b>TOTAL LIQUIDO ' + emojiLiquido + ':</b> ' + totalLiquido + ' soles</div></div>' +
+
+    // ── Toggle bot ──
     '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:' + (botActivo?'#e8f5e9':'#fdecea') + ';border-radius:10px;margin-bottom:16px">' +
     '<span style="font-weight:bold;font-size:16px">Bot ' + (botActivo?'✅ Activo':'⛔ Inactivo') + '</span>' +
     '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:' + (botActivo?'#25D366':'#e74c3c') + ';color:white;cursor:pointer;font-size:15px">' + (botActivo?'Desactivar':'Activar') + '</button></div>' +
     '<p style="color:#888;font-size:12px">⏱ Cooldown: 5 min | Respuesta: <b>"' + AUTO_REPLY + '"</b> | Se apaga solo al responder</p>' +
+
+    // ── Buscador ──
     '<div style="margin-bottom:14px">' +
     '<input id="buscador" type="text" placeholder="🔍 Buscar grupo..." oninput="buscarGrupo(this.value)" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;box-sizing:border-box"/>' +
     '</div>' +
+
+    // ── Grupos ──
     '<h3 id="titulo-grupos">Grupos (' + GRUPOS_CACHE.length + ')</h3>' +
     sectoresHtml +
+
     '<style>.hidden{display:none !important;}</style>' +
     '<script>' +
+
+    // SSE
     'var evtSource = new EventSource("/eventos");' +
     'evtSource.onmessage = function(e){var data=JSON.parse(e.data);mostrarNotificacion(data.grupo,data.hora);};' +
     'function mostrarNotificacion(grupo,hora){var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;right:16px;background:#25D366;color:white;padding:12px 18px;border-radius:12px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:9999;max-width:280px";t.innerHTML="<b>✅ Bot respondio</b><br>"+grupo+"<br><span style=\'font-size:12px;opacity:0.85\'>"+hora+"</span>";document.body.appendChild(t);setTimeout(function(){t.remove()},6000);}' +
+
+    // Acciones bot/grupo/sector
     'async function toggleBot(){await fetch("/toggle",{method:"POST"});location.reload();}' +
     'async function toggleGrupo(id){await fetch("/grupo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});location.reload();}' +
     'async function toggleSector(sector){await fetch("/sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sector:sector})});location.reload();}' +
+
+    // Delay
     'async function guardarDelay(){var val=parseInt(document.getElementById("delaySelect").value);await fetch("/ajustes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({delay:val})});var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;right:16px;background:#3498db;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999";t.textContent="✅ Delay: "+val+"ms";document.body.appendChild(t);setTimeout(function(){t.remove()},2500);}' +
+
+    // Buscador
     'function buscarGrupo(q){var query=q.toLowerCase().trim();var cards=document.querySelectorAll(".sector-card");var totalVisible=0;cards.forEach(function(card){var items=card.querySelectorAll(".grupo-item");var hayVisible=false;items.forEach(function(item){var nombre=item.getAttribute("data-nombre")||"";var mostrar=query===""||nombre.includes(query);item.style.display=mostrar?"flex":"none";if(mostrar){hayVisible=true;totalVisible++;}});card.style.display=(query===""||hayVisible)?"block":"none";});document.getElementById("titulo-grupos").textContent=query?"Resultados: "+totalVisible+" grupo(s)":"Grupos (' + GRUPOS_CACHE.length + ')";}' +
+
+    // ── Keywords dinámicas JS ──
+    'function toastOk(msg){var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;right:16px;background:#25D366;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999";t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove()},2500);}' +
+    'function toastErr(msg){var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;right:16px;background:#e74c3c;color:white;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999";t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove()},2500);}' +
+
+    'async function agregarKw(tipo){' +
+    '  var input = document.getElementById(tipo==="global"?"kwGlobalInput":"kwExcluirInput");' +
+    '  var kw = input.value.trim();' +
+    '  if(!kw){toastErr("Escribe una keyword");return;}' +
+    '  var r = await fetch("/keywords/"+tipo,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"agregar",keyword:kw})});' +
+    '  if(r.ok){input.value="";toastOk("✅ Keyword agregada");setTimeout(function(){location.reload()},600);}' +
+    '  else toastErr("Error al agregar");' +
+    '}' +
+
+    'async function quitarKw(tipo,kw){' +
+    '  var r = await fetch("/keywords/"+tipo,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"quitar",keyword:kw})});' +
+    '  if(r.ok){toastOk("🗑 Keyword eliminada");setTimeout(function(){location.reload()},600);}' +
+    '  else toastErr("Error al eliminar");' +
+    '}' +
+
+    'async function agregarKwEspecial(){' +
+    '  var grupo = document.getElementById("kwEspecialGrupo").value;' +
+    '  var kw = document.getElementById("kwEspecialInput").value.trim();' +
+    '  if(!grupo){toastErr("Selecciona un grupo");return;}' +
+    '  if(!kw){toastErr("Escribe una keyword");return;}' +
+    '  var r = await fetch("/keywords/especial",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"agregar",grupo:grupo,keyword:kw})});' +
+    '  if(r.ok){document.getElementById("kwEspecialInput").value="";toastOk("✅ Keyword especial agregada");setTimeout(function(){location.reload()},600);}' +
+    '  else toastErr("Error al agregar");' +
+    '}' +
+
+    'async function quitarKwEspecial(grupo,kw){' +
+    '  var r = await fetch("/keywords/especial",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"quitar",grupo:grupo,keyword:kw})});' +
+    '  if(r.ok){toastOk("🗑 Keyword eliminada");setTimeout(function(){location.reload()},600);}' +
+    '  else toastErr("Error al eliminar");' +
+    '}' +
+
     '</script></body></html>');
 });
 
+// ── Otros endpoints ──
 app.post('/toggle', function(req, res) {
   botActivo = !botActivo;
   if (botActivo) Object.keys(lastReply).forEach(function(k) { delete lastReply[k]; });
