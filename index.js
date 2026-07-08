@@ -81,7 +81,7 @@ const KEYWORDS_ESPECIALES_BASE = {
 
 const KEYWORDS_EXCLUIR_BASE = [
   'cuanto','cuánto','precio','costo','tarifa','cobran','cobras','Makro','plaza vea','tottus','compra',
-  'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta',
+  'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta','casa','piso','unidad vecinal','color','al frente','frente al','grifo',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
   'cuanto es el delivery','cuanto me sale','cuanto cobran',
   'cuanto es','cuanto sera','cuánto sera','a cuánto esta','a cuanto esta','tiene costo','tiene precio','free','gratis',
@@ -215,9 +215,9 @@ const SECTORES = {
   ],
   'Sector Moderna': [
     'BUBATON BOX DELIVERY','CRAZY CORN 🌭🧋🤗','CHIFA LIU BOX DELIVERY',
-    'McGrill Restaurante BOX DELIVERY','REST CENTRO BOX DELIVERY','REST CENTRO BOX DELIVERY ',
+    'McGrill Restaurante BOX DELIVERY','REST CENTRO BOX DELIVERY','REST CENTRO BOX DELIVERY ','PATRIA PEDIDOS   ','PATRIA PEDIDOS',
     'MISTER JUGO BOX DELIVERY','MISTER JUGO BOX DELIVERY ','CANTONES - BOX DELIVERY',
-    'PIM PAM POLLO BOX DELIVERY','CHIFA CHANG KEE PEDIDOS','MONO ALITAS BOX DELIVERY',
+    'PIM PAM POLLO BOX DELIVERY','CHIFA CHANG KEE PEDIDOS','MONO ALITAS BOX DELIVERY','PIO RICO BOX DELIVERY','PIO RICO BOX DELIVERY ',
     'KANASTAS BOX DELIVERY','KANASTAS BOX DELIVERY ','PUERTO RICO BOX DELIVERY','PUERTO RICO BOX DELIVERY '
   ],
   'Sector La Angostura': [
@@ -228,9 +228,9 @@ const SECTORES = {
     'ARTIA PASTELERIA (dribox)','PEPEFOD DELIVERY','MIAS BOX DELIVERY',
     'ONEST BOX DELIVERY','ONEST BOX DELIVERY ','Hugo Restaurante BOX DELIVERY','Hugo Restaurante BOX DELIVERY ',
     'Palacio Oriental BOX DELIVERY','ROCA STEAK HOUSE BOX DELIVERY','PAPEADO SAN ISIDRO BOX DELIVERY',
-    'SMART NUTRITION BOX DELIVERY','DELIVERY BIEN PESCAO 🏍️','PIO RICO BOX DELIVERY','PIO RICO BOX DELIVERY ',
+    'SMART NUTRITION BOX DELIVERY','DELIVERY BIEN PESCAO 🏍️','LAS CAÑAS BOX DELIVERY','LAS CAÑAS BOX DELIVERY   ', 
     'POLLERÍA EL HUARANGO - BOX DELIVERY','Paradero ','Paradero','Boletas locales',
-    'Rincón del sabor BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY',
+    'Rincón del sabor BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY','BOX DELIVERY EL PESQUERO ','BOX DELIVERY EL PESQUERO',
     'MONKEY DONUTS BOX DELIVERY','MONKEY DONUTS BOX DELIVERY ',
     'Pizzería cardenatti box delivery','Pizzería cardenatti box delivery ',
     'LA PARRILLERIA BOX DELIVERY','LA PARRILLERIA BOX DELIVERY ',
