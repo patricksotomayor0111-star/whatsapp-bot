@@ -597,9 +597,19 @@ async function cargarGrupos(intento) {
   try {
     console.log('Cargando grupos, intento ' + intento + '...');
 
-    var chats = await client.getChats();
-    var grupos = chats.filter(function(c) {
-      return c.isGroup;
+    var grupos = await client.pupPage.evaluate(function() {
+      var chats = window.require('WAWebCollections').Chat.getModelsArray();
+
+      return chats
+        .filter(function(chat) {
+          return chat.groupMetadata && chat.id && chat.id._serialized;
+        })
+        .map(function(chat) {
+          return {
+            id: chat.id._serialized,
+            name: chat.formattedTitle || chat.name || chat.id._serialized
+          };
+        });
     });
 
     if (grupos.length === 0 && intento < 8) {
@@ -612,12 +622,7 @@ async function cargarGrupos(intento) {
       return cargarGrupos(intento + 1);
     }
 
-    GRUPOS_CACHE = grupos.map(function(g) {
-      return {
-        id: g.id._serialized,
-        name: g.name
-      };
-    });
+    GRUPOS_CACHE = grupos;
 
     GRUPOS_CACHE.sort(function(a, b) {
       var ia = ORDEN_GRUPOS.findIndex(function(n) {
@@ -659,9 +664,8 @@ async function cargarGrupos(intento) {
     console.log('Listo - ' + grupos.length + ' grupos cargados en intento ' + intento);
 
   } catch(e) {
-    console.error('Error cargando chats (intento ' + intento + '):', {
+    console.error('Error cargando grupos (intento ' + intento + '):', {
       mensaje: e && e.message,
-      nombre: e && e.name,
       errorCompleto: String(e),
       stack: e && e.stack
     });
@@ -669,16 +673,12 @@ async function cargarGrupos(intento) {
     if (intento < 8) {
       var espera = intento <= 3 ? 20000 : 30000;
 
-      console.log('Reintentando en ' + (espera / 1000) + 's...');
-
       await new Promise(function(resolve) {
         setTimeout(resolve, espera);
       });
 
       return cargarGrupos(intento + 1);
     }
-
-    console.log('No se pudieron cargar los grupos tras 8 intentos.');
   }
 }
 
