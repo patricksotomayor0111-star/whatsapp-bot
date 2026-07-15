@@ -68,7 +68,7 @@ const KEYWORDS_ESPECIALES_BASE = {
   'ARTIA PASTELERIA (dribox)': ['ya esta listo'],
   'PEPEFOD DELIVERY': ['por favor un recojo en raul porras barrenechea d4'],
   'CHIFA LIU BOX DELIVERY': ['Hola pedido'],
-  'HARVEST BOX DELIVERY',: ['Puede acercarce uno mas por favor para llevar otro?','chicos alguien se puede acercar para llevar un pedido a onest?'], 
+  'HARVEST BOX DELIVERY': ['Puede acercarce uno mas por favor para llevar otro?','chicos alguien se puede acercar para llevar un pedido a onest?'], 
   'BUBATON BOX DELIVERY': ['ingrese'],
   'CARTAS RESTAURANTES': [
     'ingrese','a tienda por favor','pedido','a tienda','tienda por favor','delivery','delivery a divino maestro',
