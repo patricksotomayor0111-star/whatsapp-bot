@@ -592,11 +592,22 @@ client.on('disconnected', function(reason) {
 });
 client.on('ready', async function() {
   isReady=true; qrCodeData='';
-  console.log('WhatsApp listo, esperando 5s...');
-  await new Promise(function(r){setTimeout(r,5000);});
+  console.log('WhatsApp listo, esperando 15s...');
+  await new Promise(function(r){setTimeout(r,15000);});
+  await cargarGrupos();
+});
+
+async function cargarGrupos(intento) {
+  intento = intento || 1;
   try {
+    console.log('Cargando grupos, intento '+intento+'...');
     var chats = await client.getChats();
     var grupos = chats.filter(function(c){return c.isGroup;});
+    if(grupos.length === 0 && intento < 5) {
+      console.log('Sin grupos aun, reintentando en 10s...');
+      await new Promise(function(r){setTimeout(r,10000);});
+      return cargarGrupos(intento+1);
+    }
     GRUPOS_CACHE = grupos.map(function(g){return {id:g.id._serialized,name:g.name};});
     GRUPOS_CACHE.sort(function(a,b){
       var ia=ORDEN_GRUPOS.findIndex(function(n){return n.trim().toLowerCase()===a.name.trim().toLowerCase();});
@@ -611,9 +622,15 @@ client.on('ready', async function() {
       if(!GRUPOS_ACTIVOS.includes(g.id))GRUPOS_ACTIVOS.push(g.id);
     });
     saveConfig();
-    console.log('Listo - '+grupos.length+' grupos cargados');
-  } catch(e){console.log('Error cargando chats:',e.message);}
-});
+    console.log('Listo - '+grupos.length+' grupos cargados en intento '+intento);
+  } catch(e){
+    console.log('Error cargando chats (intento '+intento+'):',e.message);
+    if(intento < 5) {
+      await new Promise(function(r){setTimeout(r,10000);});
+      return cargarGrupos(intento+1);
+    }
+  }
+}
 
 client.on('message', async function(msg) {
   if (!isReady) return;
