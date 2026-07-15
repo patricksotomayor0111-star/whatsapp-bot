@@ -63,7 +63,6 @@ const FRASES_MCGRILL_CARTAS = [
   'me envia uno porfa','enviame uno porfa','enviame uno','manda uno','alguien disponible'
 ];
 
-// ── CORREGIDO: sin coma extra en HARVEST BOX DELIVERY ──
 const KEYWORDS_ESPECIALES_BASE = {
   'AYABACA - BUMANGUESA II': ['listo'],
   'ARTIA PASTELERIA (dribox)': ['ya esta listo'],
@@ -252,10 +251,6 @@ const SECTORES = {
 
 const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
-// ════════════════════════════════════════════════════════════════════
-// PERSISTENCIA
-// ════════════════════════════════════════════════════════════════════
-
 function loadKeywords() {
   try { if (fs.existsSync(KEYWORDS_FILE)) return JSON.parse(fs.readFileSync(KEYWORDS_FILE,'utf8')); } catch(e) {}
   return { globales:[], excluir:[], especiales:{}, frasesDesactivadas:{}, sectoresPersonalizados:{} };
@@ -303,10 +298,6 @@ function loadReporte() {
 }
 function saveReporte(data) { fs.writeFileSync(REPORTE_FILE, JSON.stringify(data)); }
 
-// ════════════════════════════════════════════════════════════════════
-// ESTADO GLOBAL
-// ════════════════════════════════════════════════════════════════════
-
 var cfg               = loadConfig();
 var botActivo         = false;
 var GRUPOS_ACTIVOS    = cfg.gruposActivos    || [];
@@ -324,10 +315,6 @@ var sseClients        = [];
 var reporteEnviado    = false;
 var reporteDiarioEnviado = false;
 
-// ════════════════════════════════════════════════════════════════════
-// KEYWORDS DINÁMICAS
-// ════════════════════════════════════════════════════════════════════
-
 function getKeywordsGlobales()        { return KEYWORDS_GLOBALES_BASE.concat(KW.globales || []); }
 function getKeywordsExcluir()         { return KEYWORDS_EXCLUIR_BASE.concat(KW.excluir   || []); }
 function getKeywordsEspeciales(grupo) {
@@ -342,10 +329,6 @@ function getFrasesActivasSectorBase(nombreGrupo) {
   var desact = (KW.frasesDesactivadas && KW.frasesDesactivadas[nombreGrupo]) || [];
   return cfg2.frases.filter(function(f) { return !desact.includes(f); });
 }
-
-// ════════════════════════════════════════════════════════════════════
-// UTILIDADES
-// ════════════════════════════════════════════════════════════════════
 
 function getHoraPeru() {
   return new Date(new Date().toLocaleString('en-US', { timeZone:'America/Lima' }));
@@ -362,8 +345,6 @@ function normalizar(texto) {
     .replace(/[^a-z0-9 ?:]/g,' ').replace(/\s+/g,' ').trim();
 }
 
-// ── Detección de hora futura ─────────────────────────────────────────
-// Formatos: 10:45 | 10.45 | 10 45 | 1045 | 10:45am | 10.45pm
 function tieneHoraFuturaLejana(texto) {
   var t = normalizar(texto);
   var ahora = getHoraPeru();
@@ -387,47 +368,25 @@ function tieneHoraFuturaLejana(texto) {
   return encontrado;
 }
 
-// ── Detección de minutos cercanos (0-15 min) → responde ─────────────
-// Detecta patrones como: 5min, 5 min, 5 m, 5 minutos, sale en 5,
-// en 5, listo en 5, para 5, en 5', 5', etc.
-// Solo números (no texto como "cinco minutos")
-// Si detecta número 0-15 → true (responde)
-// Si detecta número 16+ → false (no responde por minutos)
-// Si no detecta nada de minutos → null (no aplica esta lógica)
 function detectarMinutosCercanos(texto) {
   var t = normalizar(texto);
-
-  // Patrones que capturan el número de minutos
-  // Prefijos: sale en, en, listo en, para, llega en, lista en, pedido en, estara en
-  // Sufijos: min, minutos, m, ' (apóstrofe ya normalizado a espacio)
-  // También acepta el número solo con sufijo (5min, 5 min, 5m, 5 minutos, 5')
-
   var regexMinutos = [
-    // "en 5 min" / "sale en 5 min" / "listo en 5 minutos" / "para 5 min"
     /(?:sale\s+en|listo\s+en|lista\s+en|llega\s+en|pedido\s+en|estara\s+en|para\s+|en\s+)\s*(\d{1,2})\s*(?:min(?:utos?)?|m\b)/g,
-    // "en 5" solo (sin sufijo de minuto) cuando hay prefijo claro
     /(?:sale\s+en|listo\s+en|lista\s+en|llega\s+en|pedido\s+en|estara\s+en)\s+(\d{1,2})\b/g,
-    // "5min" / "5 min" / "5 minutos" / "5 m" (con sufijo, sin prefijo obligatorio)
     /\b(\d{1,2})\s*(?:minutos?|min\b|m\b)/g,
-    // "5'" — apóstrofe normalizado queda como espacio, pero igual capturamos "5 " al final
-    // mejor capturar explícitamente en el texto original antes de normalizar
   ];
-
-  var minEncontrado = null; // null = no detectado, número = minutos detectados
-
+  var minEncontrado = null;
   regexMinutos.forEach(function(regex) {
     var match;
     while ((match = regex.exec(t)) !== null) {
       var num = parseInt(match[1], 10);
       if (isNaN(num)) continue;
-      // Guardamos el menor número encontrado (más conservador)
       if (minEncontrado === null || num < minEncontrado) minEncontrado = num;
     }
   });
-
-  if (minEncontrado === null) return null;   // no se detectó patrón de minutos
-  if (minEncontrado <= 15) return true;       // 0-15 min → responde
-  return false;                               // 16+ min → no responde
+  if (minEncontrado === null) return null;
+  if (minEncontrado <= 15) return true;
+  return false;
 }
 
 function tieneExclusion(texto) {
@@ -445,7 +404,6 @@ function buscarKeywordEspecial(texto, nombreGrupo) {
   return lista.some(function(k) { var kn = normalizar(k); return t === kn || t.includes(kn); });
 }
 function getSectorDeGrupo(nombreGrupo) {
-  // Primero chequea si el grupo fue movido manualmente
   var kwActual = loadKeywords();
   var sp = kwActual.sectoresPersonalizados || {};
   var nombreNorm = nombreGrupo.trim().toLowerCase();
@@ -455,7 +413,6 @@ function getSectorDeGrupo(nombreGrupo) {
       return sectoresKeys[s];
     }
   }
-  // Luego busca en los sectores hardcodeados
   var keys = Object.keys(SECTORES);
   for (var i = 0; i < keys.length; i++) {
     if (keys[i] === 'Sector X (otros)') continue;
@@ -528,10 +485,6 @@ function enviarNotificacion(grupo, hora) {
   });
 }
 
-// ════════════════════════════════════════════════════════════════════
-// REPORTE AUTOMÁTICO
-// ════════════════════════════════════════════════════════════════════
-
 setInterval(async function() {
   if (!isReady) return;
   var ahora = getHoraPeru();
@@ -574,13 +527,11 @@ setInterval(async function() {
   if (ahora.getHours()===0&&ahora.getMinutes()===0) { reporteEnviado=false; reporteDiarioEnviado=false; }
 }, 60*1000);
 
-// ════════════════════════════════════════════════════════════════════
-// WHATSAPP CLIENT
-// ════════════════════════════════════════════════════════════════════
-
+// ── CLIENTE WHATSAPP ── FIX PRINCIPAL: executablePath + single-process
 var client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
     args:[
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -588,6 +539,7 @@ var client = new Client({
       '--disable-gpu',
       '--no-first-run',
       '--no-zygote',
+      '--single-process',
       '--disable-extensions',
       '--disable-background-networking',
       '--disable-default-apps',
@@ -651,7 +603,7 @@ async function cargarGrupos(intento) {
       await new Promise(function(r){setTimeout(r,espera);});
       return cargarGrupos(intento+1);
     }
-    console.log('No se pudieron cargar los grupos tras 8 intentos. El bot seguira funcionando pero sin cache de grupos.');
+    console.log('No se pudieron cargar los grupos tras 8 intentos.');
   }
 }
 
@@ -665,7 +617,6 @@ client.on('message', async function(msg) {
   var contacto=await msg.getContact();
   var numero=contacto.id.user||(msg.author?msg.author:msg.from).replace(/@.*/,'').replace(/[^0-9]/g,'');
 
-  // ── Grupo GANANCIAS ──
   if (esGrupoGanancias(chat.name)) {
     if (msg.fromMe) return;
     if (texto.trim().toLowerCase()==='reset') {
@@ -703,7 +654,6 @@ client.on('message', async function(msg) {
     return;
   }
 
-  // ── Sector Base ──
   var sectorDelGrupo=getSectorDeGrupo(chat.name);
   if (sectorDelGrupo===SECTOR_BASE) {
     if(!botActivo)return;
@@ -724,7 +674,6 @@ client.on('message', async function(msg) {
     return;
   }
 
-  // ── Bot principal ──
   if(NUMEROS_IGNORADOS.includes(numero))return;
   if(!botActivo)return;
   var chatIdP=chat.id._serialized;
@@ -736,18 +685,13 @@ client.on('message', async function(msg) {
   var esPrioritario=GRUPOS_PRIORITARIOS.includes(chat.name.trim().toLowerCase());
   var tieneKeyword=false;
 
-  // ── Lógica de minutos cercanos ───────────────────────────────────
-  // Se evalúa ANTES que las exclusiones para que tenga prioridad
   if (esTexto) {
     var resultMinutos = detectarMinutosCercanos(texto);
     if (resultMinutos === true) {
-      // 0-15 min → forzar respuesta (ignora exclusiones)
       tieneKeyword = true;
     } else if (resultMinutos === false) {
-      // 16+ min → bloquear respuesta
       return;
     }
-    // null → no aplica lógica de minutos, sigue flujo normal
   }
 
   if (!tieneKeyword) {
@@ -775,10 +719,6 @@ client.on('message', async function(msg) {
   saveHistorial();enviarNotificacion(chat.name,now.toLocaleTimeString('es-PE'));
   botActivo=false;saveConfig();
 });
-
-// ════════════════════════════════════════════════════════════════════
-// ENDPOINTS
-// ════════════════════════════════════════════════════════════════════
 
 app.get('/eventos',function(req,res){
   res.setHeader('Content-Type','text/event-stream');
@@ -877,25 +817,20 @@ app.post('/keywords/frase-base',function(req,res){
   else if(accion==='activar'){KW.frasesDesactivadas[grupo]=KW.frasesDesactivadas[grupo].filter(function(f){return f!==frase;});if(!KW.frasesDesactivadas[grupo].length)delete KW.frasesDesactivadas[grupo];}
   saveKeywords(KW);res.json({ok:true,frasesDesactivadas:KW.frasesDesactivadas});
 });
-
-// ── Mover grupo a otro sector ──
 app.post('/keywords/mover-sector',function(req,res){
   var grupo=(req.body.grupo||'').trim(),sector=(req.body.sector||'').trim();
   if(!grupo||!sector)return res.status(400).json({error:'grupo o sector vacío'});
   KW=loadKeywords();
   if(!KW.sectoresPersonalizados)KW.sectoresPersonalizados={};
-  // Quita el grupo de cualquier sector personalizado anterior
   Object.keys(KW.sectoresPersonalizados).forEach(function(s){
     KW.sectoresPersonalizados[s]=KW.sectoresPersonalizados[s].filter(function(n){return n.trim().toLowerCase()!==grupo.trim().toLowerCase();});
     if(!KW.sectoresPersonalizados[s].length)delete KW.sectoresPersonalizados[s];
   });
-  // Si el sector destino es 'original', solo elimina el personalizado (ya lo hicimos arriba)
   if(sector!=='original'){
     if(!KW.sectoresPersonalizados[sector])KW.sectoresPersonalizados[sector]=[];
     KW.sectoresPersonalizados[sector].push(grupo);
   }
   saveKeywords(KW);
-  // También activa el grupo si estaba inactivo
   var grupoCache=GRUPOS_CACHE.find(function(g){return g.name.trim().toLowerCase()===grupo.trim().toLowerCase();});
   if(grupoCache&&!GRUPOS_ACTIVOS.includes(grupoCache.id)){
     GRUPOS_ACTIVOS.push(grupoCache.id);
@@ -903,8 +838,6 @@ app.post('/keywords/mover-sector',function(req,res){
   }
   res.json({ok:true,sectoresPersonalizados:KW.sectoresPersonalizados});
 });
-
-// ── Modo enfoque MÚLTIPLE ──
 app.post('/enfoque',function(req,res){
   var grupoId=(req.body.grupoId||'').trim(),grupoNombre=(req.body.grupoNombre||'').trim();
   if(!grupoId)return res.status(400).json({error:'grupoId requerido'});
@@ -936,10 +869,6 @@ app.get('/grupos-raw',function(req,res){
   res.setHeader('Content-Type','text/plain; charset=utf-8');
   res.send('TOTAL: '+GRUPOS_CACHE.length+' grupos\n\n'+lista);
 });
-
-// ════════════════════════════════════════════════════════════════════
-// PANEL PRINCIPAL
-// ════════════════════════════════════════════════════════════════════
 
 app.get('/',function(req,res){
   if(!isReady){
@@ -994,14 +923,11 @@ app.get('/',function(req,res){
 
   var gruposSelectOpts=GRUPOS_CACHE.map(function(g){return '<option value="'+g.name.replace(/"/g,'&quot;')+'">'+g.name+'</option>';}).join('');
 
-  // ── Grupos movidos manualmente ──
   var spActual = kwActual.sectoresPersonalizados || {};
   var moverGruposHtml = '';
   var gruposMovidos = [];
   Object.keys(spActual).forEach(function(sec){
-    (spActual[sec]||[]).forEach(function(nombre){
-      gruposMovidos.push({nombre:nombre,sector:sec});
-    });
+    (spActual[sec]||[]).forEach(function(nombre){gruposMovidos.push({nombre:nombre,sector:sec});});
   });
   if(gruposMovidos.length>0){
     moverGruposHtml='<div style="margin-bottom:8px;padding:8px 10px;background:#f3e5f5;border-radius:8px;">';
@@ -1012,8 +938,6 @@ app.get('/',function(req,res){
         '<button onclick="restaurarSectorOriginal(\''+gm.nombre.replace(/'/g,"\\'")+'\')" style="padding:2px 8px;border-radius:10px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:10px">↩️</button></div>';
     });
     moverGruposHtml+='</div>';
-  } else {
-    moverGruposHtml='';
   }
 
   var porSector={};
@@ -1084,7 +1008,6 @@ app.get('/',function(req,res){
     '.kw-input{flex:1;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;}'+
     '</style>'+
     '</head><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">'+
-
     '<div id="overlay" onclick="cerrarMenu()"></div>'+
     '<div id="drawer">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'+
@@ -1131,7 +1054,6 @@ app.get('/',function(req,res){
     '<div class="menu-section">'+
     '<button class="menu-btn" style="color:#e74c3c" onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}">🚪 Cerrar sesión</button>'+
     '</div></div>'+
-
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'+
     '<h2 style="margin:0">🤖 WhatsApp Bot</h2>'+
     '<button onclick="abrirMenu()" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>'+
@@ -1149,7 +1071,6 @@ app.get('/',function(req,res){
     '</div>'+
     '<h3 id="titulo-grupos">Grupos ('+GRUPOS_CACHE.length+')</h3>'+
     sectoresHtml+
-
     '<script>'+
     'var evtSource=new EventSource("/eventos");'+
     'evtSource.onmessage=function(e){var d=JSON.parse(e.data);toast("✅ Bot respondió\\n"+d.grupo,"#25D366");};'+
@@ -1168,31 +1089,15 @@ app.get('/',function(req,res){
     'async function agregarKwEspecial(){var g=document.getElementById("kwEspecialGrupo").value;var kw=document.getElementById("kwEspecialInput").value.trim();if(!g){toast("Selecciona un grupo","#e74c3c");return;}if(!kw){toast("Escribe una keyword","#e74c3c");return;}var r=await fetch("/keywords/especial",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"agregar",grupo:g,keyword:kw})});if(r.ok){document.getElementById("kwEspecialInput").value="";toast("✅ Keyword especial agregada");setTimeout(function(){location.reload();},600);}else toast("Error","#e74c3c");}'+
     'async function quitarKwEspecial(g,kw){var r=await fetch("/keywords/especial",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"quitar",grupo:g,keyword:kw})});if(r.ok){toast("🗑 Eliminada");setTimeout(function(){location.reload();},600);}else toast("Error","#e74c3c");}'+
     'async function toggleFraseBase(grupo,frase,estaActiva){var accion=estaActiva?"desactivar":"activar";var r=await fetch("/keywords/frase-base",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,frase:frase,accion:accion})});if(r.ok){toast(estaActiva?"⛔ Frase desactivada":"✅ Frase activada");setTimeout(function(){location.reload();},600);}else toast("Error","#e74c3c");}'+
-    'async function moverGrupo(){'+
-    '  var grupo=document.getElementById("moverGrupoSelect").value;'+
-    '  var sector=document.getElementById("moverSectorSelect").value;'+
-    '  if(!grupo){toast("Selecciona un grupo","#e74c3c");return;}'+
-    '  if(!sector){toast("Selecciona un sector destino","#e74c3c");return;}'+
-    '  var r=await fetch("/keywords/mover-sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,sector:sector})});'+
-    '  if(r.ok){'+
-    '    var msg=sector==="original"?"↩️ Grupo restaurado a sector original":"📦 Grupo movido a "+sector;'+
-    '    toast(msg,"#8e44ad");'+
-    '    setTimeout(function(){location.reload();},800);'+
-    '  } else toast("Error al mover","#e74c3c");'+
-    '}'+
-    'async function restaurarSectorOriginal(grupo){'+
-    '  var r=await fetch("/keywords/mover-sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,sector:"original"})});'+
-    '  if(r.ok){toast("↩️ Restaurado a sector original","#25D366");setTimeout(function(){location.reload();},800);}'+
-    '  else toast("Error","#e74c3c");'+
-    '}'+
+    'async function moverGrupo(){var grupo=document.getElementById("moverGrupoSelect").value;var sector=document.getElementById("moverSectorSelect").value;if(!grupo){toast("Selecciona un grupo","#e74c3c");return;}if(!sector){toast("Selecciona un sector destino","#e74c3c");return;}var r=await fetch("/keywords/mover-sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,sector:sector})});if(r.ok){var msg=sector==="original"?"↩️ Grupo restaurado a sector original":"📦 Grupo movido a "+sector;toast(msg,"#8e44ad");setTimeout(function(){location.reload();},800);}else toast("Error al mover","#e74c3c");}'+
+    'async function restaurarSectorOriginal(grupo){var r=await fetch("/keywords/mover-sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,sector:"original"})});if(r.ok){toast("↩️ Restaurado a sector original","#25D366");setTimeout(function(){location.reload();},800);}else toast("Error","#e74c3c");}'+
     '</script></body></html>');
 });
 
 app.listen(3000,function(){console.log('Servidor activo');});
 
-// Evita que errores de puppeteer/whatsapp maten el proceso
 process.on('unhandledRejection', function(reason) {
-  console.log('Error no manejado:', JSON.stringify({msg: reason && reason.message, name: reason && reason.name, stack: reason && reason.stack ? reason.stack.substring(0,300) : ''}));
+  console.log('Error no manejado:', JSON.stringify({msg: reason && reason.message, name: reason && reason.name}));
 });
 
 setInterval(async function(){
