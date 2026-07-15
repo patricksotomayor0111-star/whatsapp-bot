@@ -612,8 +612,8 @@ client.on('disconnected', function(reason) {
 });
 client.on('ready', async function() {
   isReady=true; qrCodeData='';
-  console.log('WhatsApp listo, esperando 15s...');
-  await new Promise(function(r){setTimeout(r,15000);});
+  console.log('WhatsApp listo, esperando 30s para que cargue completamente...');
+  await new Promise(function(r){setTimeout(r,30000);});
   await cargarGrupos();
 });
 
@@ -623,9 +623,9 @@ async function cargarGrupos(intento) {
     console.log('Cargando grupos, intento '+intento+'...');
     var chats = await client.getChats();
     var grupos = chats.filter(function(c){return c.isGroup;});
-    if(grupos.length === 0 && intento < 5) {
-      console.log('Sin grupos aun, reintentando en 10s...');
-      await new Promise(function(r){setTimeout(r,10000);});
+    if(grupos.length === 0 && intento < 8) {
+      console.log('Sin grupos aun, reintentando en 20s...');
+      await new Promise(function(r){setTimeout(r,20000);});
       return cargarGrupos(intento+1);
     }
     GRUPOS_CACHE = grupos.map(function(g){return {id:g.id._serialized,name:g.name};});
@@ -644,11 +644,14 @@ async function cargarGrupos(intento) {
     saveConfig();
     console.log('Listo - '+grupos.length+' grupos cargados en intento '+intento);
   } catch(e){
-    console.log('Error cargando chats (intento '+intento+'):', JSON.stringify({msg: e.message, stack: e.stack, name: e.name}));
-    if(intento < 5) {
-      await new Promise(function(r){setTimeout(r,10000);});
+    console.log('Error cargando chats (intento '+intento+'):', e.message);
+    if(intento < 8) {
+      var espera = intento <= 3 ? 20000 : 30000;
+      console.log('Reintentando en '+(espera/1000)+'s...');
+      await new Promise(function(r){setTimeout(r,espera);});
       return cargarGrupos(intento+1);
     }
+    console.log('No se pudieron cargar los grupos tras 8 intentos. El bot seguira funcionando pero sin cache de grupos.');
   }
 }
 
