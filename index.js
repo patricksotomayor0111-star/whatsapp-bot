@@ -580,7 +580,19 @@ setInterval(async function() {
 
 var client = new Client({
   authStrategy: new LocalAuth(),
-  puppeteer: { args:['--no-sandbox','--disable-setuid-sandbox'], protocolTimeout:60000 }
+  puppeteer: {
+    args:[
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu'
+    ],
+    protocolTimeout: 120000
+  }
 });
 
 client.on('qr', function(qr) { qrCodeData=qr; isReady=false; });
@@ -1166,6 +1178,11 @@ app.get('/',function(req,res){
 });
 
 app.listen(3000,function(){console.log('Servidor activo');});
+
+// Evita que errores de puppeteer/whatsapp maten el proceso
+process.on('unhandledRejection', function(reason) {
+  console.log('Error no manejado (ignorado):', reason && reason.message ? reason.message : reason);
+});
 
 setInterval(async function(){
   try{if(isReady){var s=await client.getState();if(s!=='CONNECTED'){isReady=false;qrCodeData='';botActivo=false;saveConfig();process.exit(0);}}}catch(e){process.exit(0);}
