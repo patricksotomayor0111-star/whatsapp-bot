@@ -258,7 +258,7 @@ const ORDEN_GRUPOS = Object.values(SECTORES).flat();
 
 function loadKeywords() {
   try { if (fs.existsSync(KEYWORDS_FILE)) return JSON.parse(fs.readFileSync(KEYWORDS_FILE,'utf8')); } catch(e) {}
-  return { globales:[], excluir:[], especiales:{}, frasesDesactivadas:{} };
+  return { globales:[], excluir:[], especiales:{}, frasesDesactivadas:{}, sectoresPersonalizados:{} };
 }
 function saveKeywords(data) { fs.writeFileSync(KEYWORDS_FILE, JSON.stringify(data)); }
 function loadSnapshot() {
@@ -389,7 +389,7 @@ function tieneHoraFuturaLejana(texto) {
 
 // ── Detección de minutos cercanos (0-15 min) → responde ─────────────
 // Detecta patrones como: 5min, 5 min, 5 m, 5 minutos, sale en 5,
-// en 5, listo en 5, para 5, en 5', etc.
+// en 5, listo en 5, para 5, en 5', 5', etc.
 // Solo números (no texto como "cinco minutos")
 // Si detecta número 0-15 → true (responde)
 // Si detecta número 16+ → false (no responde por minutos)
@@ -400,7 +400,7 @@ function detectarMinutosCercanos(texto) {
   // Patrones que capturan el número de minutos
   // Prefijos: sale en, en, listo en, para, llega en, lista en, pedido en, estara en
   // Sufijos: min, minutos, m, ' (apóstrofe ya normalizado a espacio)
-  // También acepta el número solo con sufijo (5min, 5 min, 5m, 5 minutos)
+  // También acepta el número solo con sufijo (5min, 5 min, 5m, 5 minutos, 5')
 
   var regexMinutos = [
     // "en 5 min" / "sale en 5 min" / "listo en 5 minutos" / "para 5 min"
@@ -445,12 +445,23 @@ function buscarKeywordEspecial(texto, nombreGrupo) {
   return lista.some(function(k) { var kn = normalizar(k); return t === kn || t.includes(kn); });
 }
 function getSectorDeGrupo(nombreGrupo) {
+  // Primero chequea si el grupo fue movido manualmente
+  var kwActual = loadKeywords();
+  var sp = kwActual.sectoresPersonalizados || {};
+  var nombreNorm = nombreGrupo.trim().toLowerCase();
+  var sectoresKeys = Object.keys(sp);
+  for (var s = 0; s < sectoresKeys.length; s++) {
+    if (sp[sectoresKeys[s]].some(function(n){ return n.trim().toLowerCase() === nombreNorm; })) {
+      return sectoresKeys[s];
+    }
+  }
+  // Luego busca en los sectores hardcodeados
   var keys = Object.keys(SECTORES);
   for (var i = 0; i < keys.length; i++) {
     if (keys[i] === 'Sector X (otros)') continue;
     var gs = SECTORES[keys[i]];
     for (var j = 0; j < gs.length; j++) {
-      if (gs[j].trim().toLowerCase() === nombreGrupo.trim().toLowerCase()) return keys[i];
+      if (gs[j].trim().toLowerCase() === nombreNorm) return keys[i];
     }
   }
   return 'Sector X (otros)';
@@ -827,6 +838,32 @@ app.post('/keywords/frase-base',function(req,res){
   saveKeywords(KW);res.json({ok:true,frasesDesactivadas:KW.frasesDesactivadas});
 });
 
+// ── Mover grupo a otro sector ──
+app.post('/keywords/mover-sector',function(req,res){
+  var grupo=(req.body.grupo||'').trim(),sector=(req.body.sector||'').trim();
+  if(!grupo||!sector)return res.status(400).json({error:'grupo o sector vacío'});
+  KW=loadKeywords();
+  if(!KW.sectoresPersonalizados)KW.sectoresPersonalizados={};
+  // Quita el grupo de cualquier sector personalizado anterior
+  Object.keys(KW.sectoresPersonalizados).forEach(function(s){
+    KW.sectoresPersonalizados[s]=KW.sectoresPersonalizados[s].filter(function(n){return n.trim().toLowerCase()!==grupo.trim().toLowerCase();});
+    if(!KW.sectoresPersonalizados[s].length)delete KW.sectoresPersonalizados[s];
+  });
+  // Si el sector destino es 'original', solo elimina el personalizado (ya lo hicimos arriba)
+  if(sector!=='original'){
+    if(!KW.sectoresPersonalizados[sector])KW.sectoresPersonalizados[sector]=[];
+    KW.sectoresPersonalizados[sector].push(grupo);
+  }
+  saveKeywords(KW);
+  // También activa el grupo si estaba inactivo
+  var grupoCache=GRUPOS_CACHE.find(function(g){return g.name.trim().toLowerCase()===grupo.trim().toLowerCase();});
+  if(grupoCache&&!GRUPOS_ACTIVOS.includes(grupoCache.id)){
+    GRUPOS_ACTIVOS.push(grupoCache.id);
+    saveConfig();
+  }
+  res.json({ok:true,sectoresPersonalizados:KW.sectoresPersonalizados});
+});
+
 // ── Modo enfoque MÚLTIPLE ──
 app.post('/enfoque',function(req,res){
   var grupoId=(req.body.grupoId||'').trim(),grupoNombre=(req.body.grupoNombre||'').trim();
@@ -916,6 +953,28 @@ app.get('/',function(req,res){
   });
 
   var gruposSelectOpts=GRUPOS_CACHE.map(function(g){return '<option value="'+g.name.replace(/"/g,'&quot;')+'">'+g.name+'</option>';}).join('');
+
+  // ── Grupos movidos manualmente ──
+  var spActual = kwActual.sectoresPersonalizados || {};
+  var moverGruposHtml = '';
+  var gruposMovidos = [];
+  Object.keys(spActual).forEach(function(sec){
+    (spActual[sec]||[]).forEach(function(nombre){
+      gruposMovidos.push({nombre:nombre,sector:sec});
+    });
+  });
+  if(gruposMovidos.length>0){
+    moverGruposHtml='<div style="margin-bottom:8px;padding:8px 10px;background:#f3e5f5;border-radius:8px;">';
+    moverGruposHtml+='<div style="font-size:11px;font-weight:600;color:#6a1b9a;margin-bottom:6px">Grupos movidos:</div>';
+    gruposMovidos.forEach(function(gm){
+      moverGruposHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+        '<span style="font-size:11px;color:#444">'+gm.nombre+' → <b>'+gm.sector+'</b></span>'+
+        '<button onclick="restaurarSectorOriginal(\''+gm.nombre.replace(/'/g,"\\'")+'\')" style="padding:2px 8px;border-radius:10px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:10px">↩️</button></div>';
+    });
+    moverGruposHtml+='</div>';
+  } else {
+    moverGruposHtml='';
+  }
 
   var porSector={};
   Object.keys(SECTORES).forEach(function(s){porSector[s]=[];});
@@ -1013,6 +1072,22 @@ app.get('/',function(req,res){
     '<div class="menu-section"><h4>🔒 Frases Sector Base</h4>'+
     '<p style="color:#888;font-size:11px;margin:0 0 10px 0">Activa o desactiva cada frase individualmente</p>'+
     frasesBaseHtml+'</div>'+
+    '<div class="menu-section"><h4>📦 Mover grupo de sector</h4>'+
+    '<p style="color:#888;font-size:11px;margin:0 0 10px 0">Mueve un grupo a otro sector para cambiar su comportamiento</p>'+
+    '<select id="moverGrupoSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px">'+
+    '<option value="">— Selecciona un grupo —</option>'+gruposSelectOpts+'</select>'+
+    '<select id="moverSectorSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px">'+
+    '<option value="">— Mover a sector —</option>'+
+    '<option value="Sector Base">🔒 Sector Base</option>'+
+    '<option value="Sector PTB">📍 Sector PTB</option>'+
+    '<option value="Sector San José">📍 Sector San José</option>'+
+    '<option value="Sector Moderna">📍 Sector Moderna</option>'+
+    '<option value="Sector La Angostura">📍 Sector La Angostura</option>'+
+    '<option value="Sector Comodin">🔇 Sector Comodin</option>'+
+    '<option value="original">↩️ Restaurar sector original</option>'+
+    '</select>'+
+    moverGruposHtml+
+    '<button onclick="moverGrupo()" style="width:100%;padding:8px 14px;border-radius:8px;border:none;background:#8e44ad;color:white;cursor:pointer;font-size:13px;font-weight:600">📦 Mover grupo</button></div>'+
     '<div class="menu-section">'+
     '<button class="menu-btn" style="color:#e74c3c" onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}">🚪 Cerrar sesión</button>'+
     '</div></div>'+
@@ -1053,6 +1128,23 @@ app.get('/',function(req,res){
     'async function agregarKwEspecial(){var g=document.getElementById("kwEspecialGrupo").value;var kw=document.getElementById("kwEspecialInput").value.trim();if(!g){toast("Selecciona un grupo","#e74c3c");return;}if(!kw){toast("Escribe una keyword","#e74c3c");return;}var r=await fetch("/keywords/especial",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"agregar",grupo:g,keyword:kw})});if(r.ok){document.getElementById("kwEspecialInput").value="";toast("✅ Keyword especial agregada");setTimeout(function(){location.reload();},600);}else toast("Error","#e74c3c");}'+
     'async function quitarKwEspecial(g,kw){var r=await fetch("/keywords/especial",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accion:"quitar",grupo:g,keyword:kw})});if(r.ok){toast("🗑 Eliminada");setTimeout(function(){location.reload();},600);}else toast("Error","#e74c3c");}'+
     'async function toggleFraseBase(grupo,frase,estaActiva){var accion=estaActiva?"desactivar":"activar";var r=await fetch("/keywords/frase-base",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,frase:frase,accion:accion})});if(r.ok){toast(estaActiva?"⛔ Frase desactivada":"✅ Frase activada");setTimeout(function(){location.reload();},600);}else toast("Error","#e74c3c");}'+
+    'async function moverGrupo(){'+
+    '  var grupo=document.getElementById("moverGrupoSelect").value;'+
+    '  var sector=document.getElementById("moverSectorSelect").value;'+
+    '  if(!grupo){toast("Selecciona un grupo","#e74c3c");return;}'+
+    '  if(!sector){toast("Selecciona un sector destino","#e74c3c");return;}'+
+    '  var r=await fetch("/keywords/mover-sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,sector:sector})});'+
+    '  if(r.ok){'+
+    '    var msg=sector==="original"?"↩️ Grupo restaurado a sector original":"📦 Grupo movido a "+sector;'+
+    '    toast(msg,"#8e44ad");'+
+    '    setTimeout(function(){location.reload();},800);'+
+    '  } else toast("Error al mover","#e74c3c");'+
+    '}'+
+    'async function restaurarSectorOriginal(grupo){'+
+    '  var r=await fetch("/keywords/mover-sector",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({grupo:grupo,sector:"original"})});'+
+    '  if(r.ok){toast("↩️ Restaurado a sector original","#25D366");setTimeout(function(){location.reload();},800);}'+
+    '  else toast("Error","#e74c3c");'+
+    '}'+
     '</script></body></html>');
 });
 
