@@ -493,8 +493,7 @@ setInterval(async function() {
   if (esHora2359 && !reporteDiarioEnviado) {
     reporteDiarioEnviado = true;
     try {
-      var chats = await client.getChats();
-      var grupoGan = chats.find(function(c) { return c.isGroup && esGrupoGanancias(c.name); });
+      var grupoGan = GRUPOS_CACHE.find(function(c) { return esGrupoGanancias(c.name); });
       if (grupoGan) {
         var ganData = loadGanancias(), rep = loadReporte();
         var txt = '📋 *RESUMEN DEL DÍA - '+ahora.toLocaleDateString('es-PE')+'*\n─────────────────\n';
@@ -507,18 +506,17 @@ setInterval(async function() {
         txt += '💸 *Total gastos: '+ganData.gastos+' soles*\n─────────────────\n';
         var liq = Math.round((ganData.ganancias-ganData.gastos)*100)/100;
         txt += 'TOTAL LIQUIDO '+(liq>=0?'🤑':'😬')+': *'+liq+' soles*';
-        await grupoGan.sendMessage(txt);
+        await client.sendMessage(grupoGan.id,txt);
         rep.localesHoy={}; rep.gastosHoy={}; saveReporte(rep);
       }
     } catch(e) { console.log('Error reporte diario:',e.message); }
     if (esDomingo && !reporteEnviado) {
       reporteEnviado = true;
       try {
-        var chats2 = await client.getChats();
-        var gG2 = chats2.find(function(c){return c.isGroup&&esGrupoGanancias(c.name);});
+        var gG2 = GRUPOS_CACHE.find(function(c){return esGrupoGanancias(c.name);});
         if (gG2) {
           var rep2 = loadReporte();
-          await gG2.sendMessage(generarTextoReporte(rep2, rep2.semana_inicio||getFechaLunesActual(), ahora.toLocaleDateString('es-PE')));
+          await client.sendMessage(gG2.id,generarTextoReporte(rep2, rep2.semana_inicio||getFechaLunesActual(), ahora.toLocaleDateString('es-PE')));
           saveReporte({semana_inicio:getFechaLunesActual(),locales:{},gastos:{},localesHoy:{},gastosHoy:{}});
         }
       } catch(e) { console.log('Error reporte semanal:',e.message); }
@@ -527,17 +525,19 @@ setInterval(async function() {
   if (ahora.getHours()===0&&ahora.getMinutes()===0) { reporteEnviado=false; reporteDiarioEnviado=false; }
 }, 60*1000);
 
-// ── CLIENTE WHATSAPP ──
+// ── CLIENTE WHATSAPP ── FIX PRINCIPAL: executablePath + single-process
 var client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
-    args: [
+    args:[
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--no-first-run',
+      '--no-zygote',
+      '--single-process',
       '--disable-extensions',
       '--disable-background-networking',
       '--disable-default-apps',
@@ -553,132 +553,78 @@ var client = new Client({
   }
 });
 
-client.on('qr', function(qr) {
-  qrCodeData = qr;
-  isReady = false;
-});
-
-client.on('disconnected', function(reason) {
-  console.log('Desconectado:', reason);
-  isReady = false;
-  qrCodeData = '';
-  botActivo = false;
-  saveConfig();
-
+// WhatsApp Web puede fallar al crear modelos de chats en eventos internos.
+// El bot usa su propia caché de grupos, por lo que se ignora únicamente ese fallo.
+var getChatByIdOriginal = client.getChatById.bind(client);
+client.getChatById = async function(chatId) {
   try {
-    var p = './.wwebjs_auth';
-    if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
-  } catch(e) {}
+    return await getChatByIdOriginal(chatId);
+  } catch (e) {
+    if (e && (e.name === 'r' || e.message === 'r')) return null;
+    throw e;
+  }
+};
 
-  setTimeout(function() {
-    try {
-      client.initialize();
-    } catch(e) {
-      process.exit(0);
-    }
-  }, 3000);
+client.on('qr', function(qr) { qrCodeData=qr; isReady=false; });
+client.on('disconnected', function(reason) {
+  console.log('Desconectado:',reason);
+  isReady=false; qrCodeData=''; botActivo=false; saveConfig();
+  try { var p='./.wwebjs_auth'; if(fs.existsSync(p)) fs.rmSync(p,{recursive:true,force:true}); } catch(e) {}
+  setTimeout(function(){try{client.initialize();}catch(e){process.exit(0);}},3000);
 });
-
 client.on('ready', async function() {
-  isReady = true;
-  qrCodeData = '';
-
+  isReady=true; qrCodeData='';
   console.log('WhatsApp listo, esperando 30s para que cargue completamente...');
-  await new Promise(function(resolve) {
-    setTimeout(resolve, 30000);
-  });
-
+  await new Promise(function(r){setTimeout(r,30000);});
   await cargarGrupos();
 });
 
 async function cargarGrupos(intento) {
   intento = intento || 1;
-
   try {
-    console.log('Cargando grupos, intento ' + intento + '...');
-
+    console.log('Cargando grupos, intento '+intento+'...');
+    // No se usa client.getChats(): WhatsApp Web puede fallar al serializar
+    // un chat individual y bloquear la carga de todos los grupos.
     var grupos = await client.pupPage.evaluate(function() {
       var chats = window.require('WAWebCollections').Chat.getModelsArray();
-
-      return chats
-        .filter(function(chat) {
-          return chat.groupMetadata && chat.id && chat.id._serialized;
-        })
-        .map(function(chat) {
-          return {
-            id: chat.id._serialized,
-            name: chat.formattedTitle || chat.name || chat.id._serialized
-          };
-        });
+      return chats.filter(function(chat) {
+        return chat.groupMetadata && chat.id && chat.id._serialized;
+      }).map(function(chat) {
+        return {
+          id: chat.id._serialized,
+          name: chat.formattedTitle || chat.name || chat.id._serialized
+        };
+      });
     });
-
-    if (grupos.length === 0 && intento < 8) {
+    if(grupos.length === 0 && intento < 8) {
       console.log('Sin grupos aun, reintentando en 20s...');
-
-      await new Promise(function(resolve) {
-        setTimeout(resolve, 20000);
-      });
-
-      return cargarGrupos(intento + 1);
+      await new Promise(function(r){setTimeout(r,20000);});
+      return cargarGrupos(intento+1);
     }
-
     GRUPOS_CACHE = grupos;
-
-    GRUPOS_CACHE.sort(function(a, b) {
-      var ia = ORDEN_GRUPOS.findIndex(function(n) {
-        return n.trim().toLowerCase() === a.name.trim().toLowerCase();
-      });
-
-      var ib = ORDEN_GRUPOS.findIndex(function(n) {
-        return n.trim().toLowerCase() === b.name.trim().toLowerCase();
-      });
-
-      if (ia === -1 && ib === -1) return 0;
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-
-      return ia - ib;
+    GRUPOS_CACHE.sort(function(a,b){
+      var ia=ORDEN_GRUPOS.findIndex(function(n){return n.trim().toLowerCase()===a.name.trim().toLowerCase();});
+      var ib=ORDEN_GRUPOS.findIndex(function(n){return n.trim().toLowerCase()===b.name.trim().toLowerCase();});
+      if(ia===-1&&ib===-1)return 0; if(ia===-1)return 1; if(ib===-1)return -1; return ia-ib;
     });
-
-    GRUPOS_CACHE.forEach(function(g) {
-      var esInact = SIEMPRE_INACTIVOS.some(function(n) {
-        return g.name.toLowerCase().includes(n.toLowerCase());
-      });
-
-      var esSX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
-      var esGan = esGrupoGanancias(g.name);
-
-      if (esInact || (esSX && !esGan)) {
-        GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(function(id) {
-          return id !== g.id;
-        });
-        return;
-      }
-
-      if (!GRUPOS_ACTIVOS.includes(g.id)) {
-        GRUPOS_ACTIVOS.push(g.id);
-      }
+    GRUPOS_CACHE.forEach(function(g){
+      var esInact=SIEMPRE_INACTIVOS.some(function(n){return g.name.toLowerCase().includes(n.toLowerCase());});
+      var esSX=getSectorDeGrupo(g.name)==='Sector X (otros)';
+      var esGan=esGrupoGanancias(g.name);
+      if(esInact||(esSX&&!esGan)){GRUPOS_ACTIVOS=GRUPOS_ACTIVOS.filter(function(id){return id!==g.id;});return;}
+      if(!GRUPOS_ACTIVOS.includes(g.id))GRUPOS_ACTIVOS.push(g.id);
     });
-
     saveConfig();
-    console.log('Listo - ' + grupos.length + ' grupos cargados en intento ' + intento);
-
-  } catch(e) {
-    console.error('Error cargando grupos (intento ' + intento + '):', {
-      mensaje: e && e.message,
-      errorCompleto: String(e),
-      stack: e && e.stack
-    });
-
-    if (intento < 8) {
+    console.log('Listo - '+grupos.length+' grupos cargados en intento '+intento);
+  } catch(e){
+    console.log('Error cargando chats (intento '+intento+'):', e.message);
+    if(intento < 8) {
       var espera = intento <= 3 ? 20000 : 30000;
-
-      await new Promise(function(resolve) {
-        setTimeout(resolve, espera);
-      });
-
-      return cargarGrupos(intento + 1);
+      console.log('Reintentando en '+(espera/1000)+'s...');
+      await new Promise(function(r){setTimeout(r,espera);});
+      return cargarGrupos(intento+1);
     }
+    console.log('No se pudieron cargar los grupos tras 8 intentos.');
   }
 }
 
@@ -686,11 +632,23 @@ client.on('message', async function(msg) {
   if (!isReady) return;
   var esFoto=msg.hasMedia&&msg.type==='image', esTexto=msg.type==='chat';
   if (!esTexto&&!esFoto) return;
-  var chat = await msg.getChat();
-  if (!chat.isGroup) return;
+
+  // Se evita msg.getChat(), que depende del mismo modelo interno inestable.
+  var chatId = msg.from;
+  if (!chatId || !chatId.endsWith('@g.us')) return;
+  var grupoActual = GRUPOS_CACHE.find(function(g){return g.id===chatId;});
+  if (!grupoActual) {
+    console.log('Mensaje de grupo no encontrado en cach\u00e9:',chatId);
+    return;
+  }
+  var chat = {
+    isGroup:true,
+    name:grupoActual.name,
+    id:{_serialized:chatId},
+    sendMessage:function(contenido){return client.sendMessage(chatId,contenido);}
+  };
   var texto=msg.body||'';
-  var contacto=await msg.getContact();
-  var numero=contacto.id.user||(msg.author?msg.author:msg.from).replace(/@.*/,'').replace(/[^0-9]/g,'');
+  var numero=(msg.author||'').replace(/@.*/,'').replace(/[^0-9]/g,'');
 
   if (esGrupoGanancias(chat.name)) {
     if (msg.fromMe) return;
@@ -740,7 +698,7 @@ client.on('message', async function(msg) {
       if(lastReply[chatId]&&aSB-lastReply[chatId]<COOLDOWN)return;
       lastReply[chatId]=aSB;
       await new Promise(function(r){setTimeout(r,DELAY);});
-      await msg.reply(AUTO_REPLY);
+      await client.sendMessage(chatId,AUTO_REPLY,{quotedMessageId:msg.id._serialized});
       var nSB=getHoraPeru();
       HISTORIAL.unshift({grupo:chat.name,sector:SECTOR_BASE,mensaje:texto.substring(0,80),fecha:nSB.toLocaleDateString('es-PE'),hora:nSB.toLocaleTimeString('es-PE')});
       saveHistorial();enviarNotificacion(chat.name,nSB.toLocaleTimeString('es-PE'));
@@ -787,7 +745,7 @@ client.on('message', async function(msg) {
   lastReply[chatIdP]=ahora;
   await new Promise(function(r){setTimeout(r,DELAY);});
   if(esGrupoSinRemarcar(chat.name))await chat.sendMessage(AUTO_REPLY);
-  else await msg.reply(AUTO_REPLY);
+  else await client.sendMessage(chatId,AUTO_REPLY,{quotedMessageId:msg.id._serialized});
 
   var now=getHoraPeru();
   HISTORIAL.unshift({grupo:chat.name,sector:sectorDelGrupo,mensaje:esFoto?'📸 Foto':texto.substring(0,80),fecha:now.toLocaleDateString('es-PE'),hora:now.toLocaleTimeString('es-PE')});
