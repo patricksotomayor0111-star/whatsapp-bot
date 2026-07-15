@@ -389,7 +389,7 @@ function tieneHoraFuturaLejana(texto) {
 
 // ── Detección de minutos cercanos (0-15 min) → responde ─────────────
 // Detecta patrones como: 5min, 5 min, 5 m, 5 minutos, sale en 5,
-// en 5, listo en 5, para 5, en 5', 5', etc.
+// en 5, listo en 5, para 5, en 5', etc.
 // Solo números (no texto como "cinco minutos")
 // Si detecta número 0-15 → true (responde)
 // Si detecta número 16+ → false (no responde por minutos)
@@ -400,7 +400,7 @@ function detectarMinutosCercanos(texto) {
   // Patrones que capturan el número de minutos
   // Prefijos: sale en, en, listo en, para, llega en, lista en, pedido en, estara en
   // Sufijos: min, minutos, m, ' (apóstrofe ya normalizado a espacio)
-  // También acepta el número solo con sufijo (5min, 5 min, 5m, 5 minutos, 5')
+  // También acepta el número solo con sufijo (5min, 5 min, 5m, 5 minutos)
 
   var regexMinutos = [
     // "en 5 min" / "sale en 5 min" / "listo en 5 minutos" / "para 5 min"
