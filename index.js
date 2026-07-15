@@ -215,13 +215,13 @@ const SECTORES = {
   ],
   'Sector San José': [
     'THE CROWN BOX DELIVERY','HARVEST BOX DELIVERY','RICOS PROTEIN - BOX DELIVERY','AYABACA - BUMANGUESA II',
-    'MISKY POLLERIA (dribox)','KAM LONG PEDIDOS','BOCHITOS BOX DELIVERY','AJI LIMO- BOX DELIVERY','CRIOLLO BOX DELIVERY,
+    'MISKY POLLERIA (dribox)','KAM LONG PEDIDOS','BOCHITOS BOX DELIVERY',
     'LAS NIEVES BOX DELIVERY','HELADERÍA EL PINGÜINO','MR. SUSHI BOX DELIVERY'
   ],
   'Sector Moderna': [
     'BUBATON BOX DELIVERY','CRAZY CORN 🌭🧋🤗','CHIFA LIU BOX DELIVERY',
     'McGrill Restaurante BOX DELIVERY','REST CENTRO BOX DELIVERY','REST CENTRO BOX DELIVERY ',
-    'PATRIA PEDIDOS   ','PATRIA PEDIDOS','COSTA SUR BOX','BIRKA BOX DELIVERY',
+    'PATRIA PEDIDOS   ','PATRIA PEDIDOS',
     'MISTER JUGO BOX DELIVERY','MISTER JUGO BOX DELIVERY ','CANTONES - BOX DELIVERY',
     'PIM PAM POLLO BOX DELIVERY','CHIFA CHANG KEE PEDIDOS','MONO ALITAS BOX DELIVERY',
     'PIO RICO BOX DELIVERY','PIO RICO BOX DELIVERY ',
@@ -236,7 +236,7 @@ const SECTORES = {
     'ONEST BOX DELIVERY','ONEST BOX DELIVERY ','Hugo Restaurante BOX DELIVERY','Hugo Restaurante BOX DELIVERY ',
     'Palacio Oriental BOX DELIVERY','ROCA STEAK HOUSE BOX DELIVERY','PAPEADO SAN ISIDRO BOX DELIVERY',
     'SMART NUTRITION BOX DELIVERY','DELIVERY BIEN PESCAO 🏍️',
-    'LAS CAÑAS BOX DELIVERY','LAS CAÑAS BOX DELIVERY   ','BOX DELIVERY JUGO',
+    'LAS CAÑAS BOX DELIVERY','LAS CAÑAS BOX DELIVERY   ',
     'POLLERÍA EL HUARANGO - BOX DELIVERY','Paradero ','Paradero','Boletas locales',
     'Rincón del sabor BOX DELIVERY','PUNTO CALIENTE - BOX DELIVERY',
     'BOX DELIVERY EL PESQUERO ','BOX DELIVERY EL PESQUERO',
@@ -389,7 +389,7 @@ function tieneHoraFuturaLejana(texto) {
 
 // ── Detección de minutos cercanos (0-15 min) → responde ─────────────
 // Detecta patrones como: 5min, 5 min, 5 m, 5 minutos, sale en 5,
-// en 5, listo en 5, para 5, en 5', etc.
+// en 5, listo en 5, para 5, en 5', 5', etc.
 // Solo números (no texto como "cinco minutos")
 // Si detecta número 0-15 → true (responde)
 // Si detecta número 16+ → false (no responde por minutos)
@@ -400,7 +400,7 @@ function detectarMinutosCercanos(texto) {
   // Patrones que capturan el número de minutos
   // Prefijos: sale en, en, listo en, para, llega en, lista en, pedido en, estara en
   // Sufijos: min, minutos, m, ' (apóstrofe ya normalizado a espacio)
-  // También acepta el número solo con sufijo (5min, 5 min, 5m, 5 minutos)
+  // También acepta el número solo con sufijo (5min, 5 min, 5m, 5 minutos, 5')
 
   var regexMinutos = [
     // "en 5 min" / "sale en 5 min" / "listo en 5 minutos" / "para 5 min"
@@ -409,6 +409,7 @@ function detectarMinutosCercanos(texto) {
     /(?:sale\s+en|listo\s+en|lista\s+en|llega\s+en|pedido\s+en|estara\s+en)\s+(\d{1,2})\b/g,
     // "5min" / "5 min" / "5 minutos" / "5 m" (con sufijo, sin prefijo obligatorio)
     /\b(\d{1,2})\s*(?:minutos?|min\b|m\b)/g,
+    // "5'" — apóstrofe normalizado queda como espacio, pero igual capturamos "5 " al final
     // mejor capturar explícitamente en el texto original antes de normalizar
   ];
 
