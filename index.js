@@ -644,7 +644,7 @@ async function cargarGrupos(intento) {
     saveConfig();
     console.log('Listo - '+grupos.length+' grupos cargados en intento '+intento);
   } catch(e){
-    console.log('Error cargando chats (intento '+intento+'):',e.message);
+    console.log('Error cargando chats (intento '+intento+'):', JSON.stringify({msg: e.message, stack: e.stack, name: e.name}));
     if(intento < 5) {
       await new Promise(function(r){setTimeout(r,10000);});
       return cargarGrupos(intento+1);
@@ -1189,7 +1189,7 @@ app.listen(3000,function(){console.log('Servidor activo');});
 
 // Evita que errores de puppeteer/whatsapp maten el proceso
 process.on('unhandledRejection', function(reason) {
-  console.log('Error no manejado (ignorado):', reason && reason.message ? reason.message : reason);
+  console.log('Error no manejado:', JSON.stringify({msg: reason && reason.message, name: reason && reason.name, stack: reason && reason.stack ? reason.stack.substring(0,300) : ''}));
 });
 
 setInterval(async function(){
