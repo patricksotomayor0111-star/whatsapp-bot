@@ -527,19 +527,17 @@ setInterval(async function() {
   if (ahora.getHours()===0&&ahora.getMinutes()===0) { reporteEnviado=false; reporteDiarioEnviado=false; }
 }, 60*1000);
 
-// ── CLIENTE WHATSAPP ── FIX PRINCIPAL: executablePath + single-process
+// ── CLIENTE WHATSAPP ──
 var client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
-    args:[
+    args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--no-first-run',
-      '--no-zygote',
-      '--single-process',
       '--disable-extensions',
       '--disable-background-networking',
       '--disable-default-apps',
@@ -555,54 +553,131 @@ var client = new Client({
   }
 });
 
-client.on('qr', function(qr) { qrCodeData=qr; isReady=false; });
-client.on('disconnected', function(reason) {
-  console.log('Desconectado:',reason);
-  isReady=false; qrCodeData=''; botActivo=false; saveConfig();
-  try { var p='./.wwebjs_auth'; if(fs.existsSync(p)) fs.rmSync(p,{recursive:true,force:true}); } catch(e) {}
-  setTimeout(function(){try{client.initialize();}catch(e){process.exit(0);}},3000);
+client.on('qr', function(qr) {
+  qrCodeData = qr;
+  isReady = false;
 });
+
+client.on('disconnected', function(reason) {
+  console.log('Desconectado:', reason);
+  isReady = false;
+  qrCodeData = '';
+  botActivo = false;
+  saveConfig();
+
+  try {
+    var p = './.wwebjs_auth';
+    if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
+  } catch(e) {}
+
+  setTimeout(function() {
+    try {
+      client.initialize();
+    } catch(e) {
+      process.exit(0);
+    }
+  }, 3000);
+});
+
 client.on('ready', async function() {
-  isReady=true; qrCodeData='';
+  isReady = true;
+  qrCodeData = '';
+
   console.log('WhatsApp listo, esperando 30s para que cargue completamente...');
-  await new Promise(function(r){setTimeout(r,30000);});
+  await new Promise(function(resolve) {
+    setTimeout(resolve, 30000);
+  });
+
   await cargarGrupos();
 });
 
 async function cargarGrupos(intento) {
   intento = intento || 1;
+
   try {
-    console.log('Cargando grupos, intento '+intento+'...');
+    console.log('Cargando grupos, intento ' + intento + '...');
+
     var chats = await client.getChats();
-    var grupos = chats.filter(function(c){return c.isGroup;});
-    if(grupos.length === 0 && intento < 8) {
+    var grupos = chats.filter(function(c) {
+      return c.isGroup;
+    });
+
+    if (grupos.length === 0 && intento < 8) {
       console.log('Sin grupos aun, reintentando en 20s...');
-      await new Promise(function(r){setTimeout(r,20000);});
-      return cargarGrupos(intento+1);
+
+      await new Promise(function(resolve) {
+        setTimeout(resolve, 20000);
+      });
+
+      return cargarGrupos(intento + 1);
     }
-    GRUPOS_CACHE = grupos.map(function(g){return {id:g.id._serialized,name:g.name};});
-    GRUPOS_CACHE.sort(function(a,b){
-      var ia=ORDEN_GRUPOS.findIndex(function(n){return n.trim().toLowerCase()===a.name.trim().toLowerCase();});
-      var ib=ORDEN_GRUPOS.findIndex(function(n){return n.trim().toLowerCase()===b.name.trim().toLowerCase();});
-      if(ia===-1&&ib===-1)return 0; if(ia===-1)return 1; if(ib===-1)return -1; return ia-ib;
+
+    GRUPOS_CACHE = grupos.map(function(g) {
+      return {
+        id: g.id._serialized,
+        name: g.name
+      };
     });
-    GRUPOS_CACHE.forEach(function(g){
-      var esInact=SIEMPRE_INACTIVOS.some(function(n){return g.name.toLowerCase().includes(n.toLowerCase());});
-      var esSX=getSectorDeGrupo(g.name)==='Sector X (otros)';
-      var esGan=esGrupoGanancias(g.name);
-      if(esInact||(esSX&&!esGan)){GRUPOS_ACTIVOS=GRUPOS_ACTIVOS.filter(function(id){return id!==g.id;});return;}
-      if(!GRUPOS_ACTIVOS.includes(g.id))GRUPOS_ACTIVOS.push(g.id);
+
+    GRUPOS_CACHE.sort(function(a, b) {
+      var ia = ORDEN_GRUPOS.findIndex(function(n) {
+        return n.trim().toLowerCase() === a.name.trim().toLowerCase();
+      });
+
+      var ib = ORDEN_GRUPOS.findIndex(function(n) {
+        return n.trim().toLowerCase() === b.name.trim().toLowerCase();
+      });
+
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+
+      return ia - ib;
     });
+
+    GRUPOS_CACHE.forEach(function(g) {
+      var esInact = SIEMPRE_INACTIVOS.some(function(n) {
+        return g.name.toLowerCase().includes(n.toLowerCase());
+      });
+
+      var esSX = getSectorDeGrupo(g.name) === 'Sector X (otros)';
+      var esGan = esGrupoGanancias(g.name);
+
+      if (esInact || (esSX && !esGan)) {
+        GRUPOS_ACTIVOS = GRUPOS_ACTIVOS.filter(function(id) {
+          return id !== g.id;
+        });
+        return;
+      }
+
+      if (!GRUPOS_ACTIVOS.includes(g.id)) {
+        GRUPOS_ACTIVOS.push(g.id);
+      }
+    });
+
     saveConfig();
-    console.log('Listo - '+grupos.length+' grupos cargados en intento '+intento);
-  } catch(e){
-    console.log('Error cargando chats (intento '+intento+'):', e.message);
-    if(intento < 8) {
+    console.log('Listo - ' + grupos.length + ' grupos cargados en intento ' + intento);
+
+  } catch(e) {
+    console.error('Error cargando chats (intento ' + intento + '):', {
+      mensaje: e && e.message,
+      nombre: e && e.name,
+      errorCompleto: String(e),
+      stack: e && e.stack
+    });
+
+    if (intento < 8) {
       var espera = intento <= 3 ? 20000 : 30000;
-      console.log('Reintentando en '+(espera/1000)+'s...');
-      await new Promise(function(r){setTimeout(r,espera);});
-      return cargarGrupos(intento+1);
+
+      console.log('Reintentando en ' + (espera / 1000) + 's...');
+
+      await new Promise(function(resolve) {
+        setTimeout(resolve, espera);
+      });
+
+      return cargarGrupos(intento + 1);
     }
+
     console.log('No se pudieron cargar los grupos tras 8 intentos.');
   }
 }
