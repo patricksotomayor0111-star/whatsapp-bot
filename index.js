@@ -671,6 +671,38 @@ function obtenerIdSerializadoMensaje(msg) {
   return null;
 }
 
+// Railway puede entregar un evento incompleto (sin msg.id). En ese caso se
+// recupera la copia ya cargada por WhatsApp Web dentro del grupo.
+async function buscarIdMensajeEnChat(chatId, msg) {
+  try {
+    return await client.pupPage.evaluate(function(idChat, texto, autor, fecha) {
+      var coleccion = window.require('WAWebCollections').Chat;
+      var chat = (coleccion.get && coleccion.get(idChat)) ||
+        coleccion.getModelsArray().find(function(c) {
+          return c.id && c.id._serialized === idChat;
+        });
+      if (!chat) return null;
+
+      var lista = chat.msgs && chat.msgs.getModelsArray ? chat.msgs.getModelsArray() : [];
+      for (var i = lista.length - 1; i >= 0; i--) {
+        var m = lista[i];
+        var id = m && m.id && m.id._serialized;
+        if (!id || m.body !== texto) continue;
+
+        // Se prioriza el autor y la hora para no citar otro mensaje igual.
+        var mismoAutor = !autor || !m.author || m.author === autor;
+        var horaMensaje = m.t || m.timestamp || 0;
+        var mismaHora = !fecha || !horaMensaje || Math.abs(horaMensaje - fecha) <= 10;
+        if (mismoAutor && mismaHora) return id;
+      }
+      return null;
+    }, chatId, msg.body || '', msg.author || '', msg.timestamp || 0);
+  } catch (e) {
+    console.log('No se pudo buscar el ID en el chat:', e.message);
+    return null;
+  }
+}
+
 async function responderAlMensaje(chatId, nombreGrupo, msg) {
   if (esGrupoSinRemarcar(nombreGrupo)) {
     console.log('Respuesta normal (grupo sin remarcar):', nombreGrupo);
@@ -679,7 +711,11 @@ async function responderAlMensaje(chatId, nombreGrupo, msg) {
 
   var idMensaje = obtenerIdSerializadoMensaje(msg);
   if (!idMensaje) {
-    console.log('No se puede remarcar: mensaje sin ID serializado.');
+    // El delay normal del bot ya permite que el mensaje esté en el historial.
+    idMensaje = await buscarIdMensajeEnChat(chatId, msg);
+  }
+  if (!idMensaje) {
+    console.log('No se puede remarcar: el mensaje no apareció con ID en el historial.');
     return client.sendMessage(chatId, AUTO_REPLY);
   }
 
