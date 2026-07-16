@@ -704,7 +704,11 @@ async function responderAlMensaje(chatId, nombreGrupo, msg) {
   }
 
   try {
-    var idMensaje = msg.id && msg.id._serialized;
+    var idMensaje =
+  (typeof msg.id === 'string' && msg.id) ||
+  (msg.id && msg.id._serialized) ||
+  (msg._data && typeof msg._data.id === 'string' && msg._data.id) ||
+  (msg._data && msg._data.id && msg._data.id._serialized);
 
     // Si el evento no trae ID, se busca el mensaje real dentro de WhatsApp Web.
     if (!idMensaje) {
