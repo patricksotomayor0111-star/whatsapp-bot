@@ -703,18 +703,31 @@ async function responderAlMensaje(chatId, nombreGrupo, msg) {
     return client.sendMessage(chatId, AUTO_REPLY);
   }
 
-  try {
-    var respuesta = await msg.reply(AUTO_REPLY, chatId, {
-  ignoreQuoteErrors: false,
-  waitUntilMsgSent: true
-});
+try {
+  var idOriginal = msg.id && msg.id._serialized;
 
-    console.log('Respuesta remarcada enviada:', nombreGrupo);
-    return respuesta;
-  } catch (e) {
-    console.log('Error al remarcar; se envía normal:', e.message);
-    return client.sendMessage(chatId, AUTO_REPLY);
+  if (!idOriginal) {
+    throw new Error('El mensaje entrante no tiene ID serializado');
   }
+
+  // Carga el mensaje real de WhatsApp antes de citarlo.
+  var mensajeOriginal = await client.getMessageById(idOriginal);
+
+  if (!mensajeOriginal) {
+    throw new Error('No se encontró el mensaje original para citar');
+  }
+
+  var respuesta = await mensajeOriginal.reply(AUTO_REPLY, chatId, {
+    ignoreQuoteErrors: false,
+    waitUntilMsgSent: true
+  });
+
+  console.log('Respuesta remarcada enviada:', nombreGrupo);
+  return respuesta;
+} catch (e) {
+  console.log('Error al remarcar:', e.message);
+  return client.sendMessage(chatId, AUTO_REPLY);
+}
 }
 
 client.on('message', async function(msg) {
