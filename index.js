@@ -652,13 +652,32 @@ async function obtenerNumeroAutor(msg) {
   return numero;
 }
 
+// En algunos mensajes de grupos, WhatsApp Web guarda el ID dentro de
+// `_data.id` en vez de exponerlo como `msg.id._serialized`.
+function obtenerIdSerializadoMensaje(msg) {
+  var candidatos = [
+    msg && msg.id,
+    msg && msg._data && msg._data.id,
+    msg && msg._data && msg._data.msgKey
+  ];
+
+  for (var i = 0; i < candidatos.length; i++) {
+    var id = candidatos[i];
+    if (typeof id === 'string' && id) return id;
+    if (id && typeof id._serialized === 'string' && id._serialized) {
+      return id._serialized;
+    }
+  }
+  return null;
+}
+
 async function responderAlMensaje(chatId, nombreGrupo, msg) {
   if (esGrupoSinRemarcar(nombreGrupo)) {
     console.log('Respuesta normal (grupo sin remarcar):', nombreGrupo);
     return client.sendMessage(chatId, AUTO_REPLY);
   }
 
-  var idMensaje = msg.id && msg.id._serialized;
+  var idMensaje = obtenerIdSerializadoMensaje(msg);
   if (!idMensaje) {
     console.log('No se puede remarcar: mensaje sin ID serializado.');
     return client.sendMessage(chatId, AUTO_REPLY);
