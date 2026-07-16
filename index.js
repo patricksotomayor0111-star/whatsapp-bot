@@ -756,8 +756,11 @@ client.on('message', async function(msg) {
   if(lastReply[chatIdP]&&ahora-lastReply[chatIdP]<COOLDOWN)return;
   lastReply[chatIdP]=ahora;
   await new Promise(function(r){setTimeout(r,DELAY);});
-  if(esGrupoSinRemarcar(chat.name))await chat.sendMessage(AUTO_REPLY);
-  else await client.sendMessage(chatId,AUTO_REPLY,{quotedMessageId:msg.id._serialized});
+if(esGrupoSinRemarcar(chat.name)) {
+  await chat.sendMessage(AUTO_REPLY);
+} else {
+  await msg.reply(AUTO_REPLY);
+}
 
   console.log('Respuesta enviada al grupo:',chat.name);
 
