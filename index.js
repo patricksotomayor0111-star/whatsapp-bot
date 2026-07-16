@@ -84,7 +84,7 @@ const KEYWORDS_ESPECIALES_BASE = {
 };
 
 const KEYWORDS_EXCLUIR_BASE = [
-  'cuanto','cuánto','precio','costo','tarifa','cobran','cobras','makro','plaza vea','tottus','compra','ica','ref','en la recta',
+  'cuanto','cuánto','precio','costo','tarifa','cobran','cobras','makro','plaza vea','tottus','compra','ica','ref','en la recta','hola',
   'cuanto sale','cuanto cuesta','cuánto sale','cuánto cuesta','casa','piso','unidad vecinal','color','al frente','frente al','grifo',
   'a cuanto','a cuánto','me pueden dar precio','precio del delivery',
   'cuanto es el delivery','cuanto me sale','cuanto cobran',
