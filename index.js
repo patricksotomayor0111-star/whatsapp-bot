@@ -704,7 +704,10 @@ async function responderAlMensaje(chatId, nombreGrupo, msg) {
   }
 
   try {
-    var respuesta = await msg.reply(AUTO_REPLY, chatId);
+    var respuesta = await msg.reply(AUTO_REPLY, chatId, {
+  ignoreQuoteErrors: false,
+  waitUntilMsgSent: true
+});
 
     console.log('Respuesta remarcada enviada:', nombreGrupo);
     return respuesta;
