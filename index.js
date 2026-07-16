@@ -344,7 +344,6 @@ function normalizar(texto) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9 ?:]/g,' ').replace(/\s+/g,' ').trim();
 }
-
 function tieneHoraFuturaLejana(texto) {
   var t = normalizar(texto);
   var ahora = getHoraPeru();
@@ -367,7 +366,6 @@ function tieneHoraFuturaLejana(texto) {
   });
   return encontrado;
 }
-
 function detectarMinutosCercanos(texto) {
   var t = normalizar(texto);
   var regexMinutos = [
@@ -388,7 +386,6 @@ function detectarMinutosCercanos(texto) {
   if (minEncontrado <= 15) return true;
   return false;
 }
-
 function tieneExclusion(texto) {
   var t = normalizar(texto);
   return getKeywordsExcluir().some(function(k) { return t.includes(normalizar(k)); });
@@ -409,9 +406,7 @@ function getSectorDeGrupo(nombreGrupo) {
   var nombreNorm = nombreGrupo.trim().toLowerCase();
   var sectoresKeys = Object.keys(sp);
   for (var s = 0; s < sectoresKeys.length; s++) {
-    if (sp[sectoresKeys[s]].some(function(n){ return n.trim().toLowerCase() === nombreNorm; })) {
-      return sectoresKeys[s];
-    }
+    if (sp[sectoresKeys[s]].some(function(n){ return n.trim().toLowerCase() === nombreNorm; })) return sectoresKeys[s];
   }
   var keys = Object.keys(SECTORES);
   for (var i = 0; i < keys.length; i++) {
@@ -485,6 +480,22 @@ function enviarNotificacion(grupo, hora) {
   });
 }
 
+// ── Responder con o sin remarcar usando MessageMedia quoted ──────────
+// Para remarcar: usa client.sendMessage con la opción quotedMessageId
+// Para no remarcar: envía mensaje normal
+async function responderMensaje(chatId, nombreGrupo, msg) {
+  if (esGrupoSinRemarcar(nombreGrupo)) {
+    return client.sendMessage(chatId, AUTO_REPLY);
+  }
+  // Remarcar: usar sendMessage con quoted para evitar msg.getChat()
+  try {
+    return await client.sendMessage(chatId, AUTO_REPLY, { quotedMessageId: msg.id._serialized });
+  } catch(e) {
+    console.log('Error al remarcar, enviando sin remarcar:', e.message);
+    return client.sendMessage(chatId, AUTO_REPLY);
+  }
+}
+
 setInterval(async function() {
   if (!isReady) return;
   var ahora = getHoraPeru();
@@ -506,7 +517,7 @@ setInterval(async function() {
         txt += '💸 *Total gastos: '+ganData.gastos+' soles*\n─────────────────\n';
         var liq = Math.round((ganData.ganancias-ganData.gastos)*100)/100;
         txt += 'TOTAL LIQUIDO '+(liq>=0?'🤑':'😬')+': *'+liq+' soles*';
-        await client.sendMessage(grupoGan.id,txt);
+        await client.sendMessage(grupoGan.id, txt);
         rep.localesHoy={}; rep.gastosHoy={}; saveReporte(rep);
       }
     } catch(e) { console.log('Error reporte diario:',e.message); }
@@ -516,7 +527,7 @@ setInterval(async function() {
         var gG2 = GRUPOS_CACHE.find(function(c){return esGrupoGanancias(c.name);});
         if (gG2) {
           var rep2 = loadReporte();
-          await client.sendMessage(gG2.id,generarTextoReporte(rep2, rep2.semana_inicio||getFechaLunesActual(), ahora.toLocaleDateString('es-PE')));
+          await client.sendMessage(gG2.id, generarTextoReporte(rep2, rep2.semana_inicio||getFechaLunesActual(), ahora.toLocaleDateString('es-PE')));
           saveReporte({semana_inicio:getFechaLunesActual(),locales:{},gastos:{},localesHoy:{},gastosHoy:{}});
         }
       } catch(e) { console.log('Error reporte semanal:',e.message); }
@@ -525,7 +536,6 @@ setInterval(async function() {
   if (ahora.getHours()===0&&ahora.getMinutes()===0) { reporteEnviado=false; reporteDiarioEnviado=false; }
 }, 60*1000);
 
-// ── CLIENTE WHATSAPP ── FIX PRINCIPAL: executablePath + single-process
 var client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: {
@@ -553,31 +563,17 @@ var client = new Client({
   }
 });
 
-// WhatsApp Web puede fallar al crear modelos de chats en eventos internos.
-// El bot usa su propia caché de grupos, por lo que se ignora únicamente ese fallo.
-var getChatByIdOriginal = client.getChatById.bind(client);
-client.getChatById = async function(chatId) {
-  try {
-    return await getChatByIdOriginal(chatId);
-  } catch (e) {
-    if (e && (e.name === 'r' || e.message === 'r')) return null;
-    throw e;
-  }
-};
-
 client.on('qr', function(qr) { qrCodeData=qr; isReady=false; });
 client.on('disconnected', function(reason) {
   console.log('Desconectado:',reason);
   isReady=false; qrCodeData=''; botActivo=false; saveConfig();
-  // Cuando WhatsApp cierra sesión, no borres ni reinicies dos veces el cliente.
-  // Railway mostrará un nuevo QR para vincularlo manualmente.
   if (reason === 'LOGOUT') return;
   try { var p='./.wwebjs_auth'; if(fs.existsSync(p)) fs.rmSync(p,{recursive:true,force:true}); } catch(e) {}
   setTimeout(function(){try{client.initialize();}catch(e){process.exit(0);}},3000);
 });
 client.on('ready', async function() {
   isReady=true; qrCodeData='';
-  console.log('WhatsApp listo, esperando 30s para que cargue completamente...');
+  console.log('WhatsApp listo, esperando 30s...');
   await new Promise(function(r){setTimeout(r,30000);});
   await cargarGrupos();
 });
@@ -586,25 +582,14 @@ async function cargarGrupos(intento) {
   intento = intento || 1;
   try {
     console.log('Cargando grupos, intento '+intento+'...');
-    // No se usa client.getChats(): WhatsApp Web puede fallar al serializar
-    // un chat individual y bloquear la carga de todos los grupos.
-    var grupos = await client.pupPage.evaluate(function() {
-      var chats = window.require('WAWebCollections').Chat.getModelsArray();
-      return chats.filter(function(chat) {
-        return chat.groupMetadata && chat.id && chat.id._serialized;
-      }).map(function(chat) {
-        return {
-          id: chat.id._serialized,
-          name: chat.formattedTitle || chat.name || chat.id._serialized
-        };
-      });
-    });
+    var chats = await client.getChats();
+    var grupos = chats.filter(function(c){return c.isGroup;});
     if(grupos.length === 0 && intento < 8) {
       console.log('Sin grupos aun, reintentando en 20s...');
       await new Promise(function(r){setTimeout(r,20000);});
       return cargarGrupos(intento+1);
     }
-    GRUPOS_CACHE = grupos;
+    GRUPOS_CACHE = grupos.map(function(g){return {id:g.id._serialized,name:g.name};});
     GRUPOS_CACHE.sort(function(a,b){
       var ia=ORDEN_GRUPOS.findIndex(function(n){return n.trim().toLowerCase()===a.name.trim().toLowerCase();});
       var ib=ORDEN_GRUPOS.findIndex(function(n){return n.trim().toLowerCase()===b.name.trim().toLowerCase();});
@@ -631,76 +616,31 @@ async function cargarGrupos(intento) {
   }
 }
 
-async function obtenerNumeroAutor(msg) {
-  var autor = msg.author || '';
-  if (!autor) return '';
-
-  var numero = autor.replace(/@.*/, '').replace(/[^0-9]/g, '');
-  if (!autor.endsWith('@lid')) return numero;
-
-  try {
-    if (typeof client.getContactLidAndPhone === 'function') {
-      var resultado = await client.getContactLidAndPhone([autor]);
-      if (resultado && resultado[0] && resultado[0].pn) {
-        return resultado[0].pn.replace(/[^0-9]/g, '');
-      }
-    }
-  } catch (e) {
-    console.log('No se pudo resolver el número LID:', e.message);
-  }
-
-  return numero;
-}
-
-async function responderAlMensaje(chatId, nombreGrupo, msg) {
-  if (esGrupoSinRemarcar(nombreGrupo)) {
-    return client.sendMessage(chatId, AUTO_REPLY);
-  }
-  // reply con chatId evita que whatsapp-web.js llame a msg.getChat(),
-  // pero conserva la respuesta citada que WhatsApp muestra remarcada.
-  try {
-    return await msg.reply(AUTO_REPLY, chatId);
-  } catch (e) {
-    console.log('Error al remarcar; se envía normal:', e.message);
-    return client.sendMessage(chatId, AUTO_REPLY);
-  }
-}
-
 client.on('message', async function(msg) {
-  console.log('Mensaje recibido:', JSON.stringify({
-    from:msg.from,
-    author:msg.author,
-    type:msg.type,
-    texto:(msg.body||'').substring(0,80)
-  }));
   if (!isReady) return;
   var esFoto=msg.hasMedia&&msg.type==='image', esTexto=msg.type==='chat';
   if (!esTexto&&!esFoto) return;
-
-  // Se evita msg.getChat(), que depende del mismo modelo interno inestable.
   var chatId = msg.from;
   if (!chatId || !chatId.endsWith('@g.us')) return;
+
   var grupoActual = GRUPOS_CACHE.find(function(g){return g.id===chatId;});
   if (!grupoActual) {
-    console.log('Grupo no encontrado en caché; actualizando:',chatId);
     await cargarGrupos();
     grupoActual = GRUPOS_CACHE.find(function(g){return g.id===chatId;});
     if (!grupoActual) return;
   }
-  var chat = {
-    isGroup:true,
-    name:grupoActual.name,
-    id:{_serialized:chatId},
-    sendMessage:function(contenido){return client.sendMessage(chatId,contenido);}
-  };
-  var texto=msg.body||'';
-  var numero=await obtenerNumeroAutor(msg);
 
-  if (esGrupoGanancias(chat.name)) {
+  var nombreGrupo = grupoActual.name;
+  var texto = msg.body || '';
+  var contacto = await msg.getContact();
+  var numero = contacto.id.user || (msg.author ? msg.author : msg.from).replace(/@.*/,'').replace(/[^0-9]/g,'');
+
+  // ── Grupo GANANCIAS ──
+  if (esGrupoGanancias(nombreGrupo)) {
     if (msg.fromMe) return;
     if (texto.trim().toLowerCase()==='reset') {
       saveGanancias({fecha:getHoraPeru().toLocaleDateString('es-PE'),ganancias:0,gastos:0});
-      await chat.sendMessage('✅ Listo, nuevo día\n✅ GANANCIAS: Total hoy: 0 soles\n📉 GASTOS: Total hoy: -0 soles\nTOTAL LIQUIDO 🤑: 0 soles');
+      await client.sendMessage(chatId, '✅ Listo, nuevo día\n✅ GANANCIAS: Total hoy: 0 soles\n📉 GASTOS: Total hoy: -0 soles\nTOTAL LIQUIDO 🤑: 0 soles');
       return;
     }
     var entradas=extraerEntradas(texto);
@@ -728,78 +668,70 @@ client.on('message', async function(msg) {
       ganData.gastos=Math.round((ganData.gastos+tGas)*100)/100;
       saveGanancias(ganData);saveReporte(rep);
       var liq=Math.round((ganData.ganancias-ganData.gastos)*100)/100;
-      await chat.sendMessage('✅ GANANCIAS: Total hoy: '+ganData.ganancias+' soles\n📉 GASTOS: Total hoy: -'+ganData.gastos+' soles\nTOTAL LIQUIDO '+(liq>=0?'🤑':'😬')+': '+liq+' soles');
+      await client.sendMessage(chatId, '✅ GANANCIAS: Total hoy: '+ganData.ganancias+' soles\n📉 GASTOS: Total hoy: -'+ganData.gastos+' soles\nTOTAL LIQUIDO '+(liq>=0?'🤑':'😬')+': '+liq+' soles');
     }
     return;
   }
 
-  var sectorDelGrupo=getSectorDeGrupo(chat.name);
+  // ── Sector Base ──
+  var sectorDelGrupo=getSectorDeGrupo(nombreGrupo);
   if (sectorDelGrupo===SECTOR_BASE) {
-    if(!botActivo){console.log('Ignorado: bot inactivo');return;}
-    var chatId=chat.id._serialized;
-    if(!GRUPOS_ACTIVOS.includes(chatId)){console.log('Ignorado: grupo no activo',chat.name);return;}
-    if(SECTORES_APAGADOS.includes(SECTOR_BASE)){console.log('Ignorado: Sector Base apagado');return;}
-    if(procesarMensajeSectorBase(chat.name,numero,texto)){
+    if(!botActivo)return;
+    if(!GRUPOS_ACTIVOS.includes(chatId))return;
+    if(SECTORES_APAGADOS.includes(SECTOR_BASE))return;
+    if(procesarMensajeSectorBase(nombreGrupo,numero,texto)){
       var aSB=Date.now();
       if(lastReply[chatId]&&aSB-lastReply[chatId]<COOLDOWN)return;
       lastReply[chatId]=aSB;
       await new Promise(function(r){setTimeout(r,DELAY);});
-      await responderAlMensaje(chatId,chat.name,msg);
+      await responderMensaje(chatId,nombreGrupo,msg);
       var nSB=getHoraPeru();
-      HISTORIAL.unshift({grupo:chat.name,sector:SECTOR_BASE,mensaje:texto.substring(0,80),fecha:nSB.toLocaleDateString('es-PE'),hora:nSB.toLocaleTimeString('es-PE')});
-      saveHistorial();enviarNotificacion(chat.name,nSB.toLocaleTimeString('es-PE'));
+      HISTORIAL.unshift({grupo:nombreGrupo,sector:SECTOR_BASE,mensaje:texto.substring(0,80),fecha:nSB.toLocaleDateString('es-PE'),hora:nSB.toLocaleTimeString('es-PE')});
+      saveHistorial();enviarNotificacion(nombreGrupo,nSB.toLocaleTimeString('es-PE'));
       botActivo=false;saveConfig();
     }
     return;
   }
 
-  if(NUMEROS_IGNORADOS.includes(numero)){console.log('Ignorado: numero excluido');return;}
-  if(!botActivo){console.log('Ignorado: bot inactivo');return;}
-  var chatIdP=chat.id._serialized;
-  if(!GRUPOS_ACTIVOS.includes(chatIdP)){console.log('Ignorado: grupo no activo',chat.name);return;}
-  if(SECTORES_APAGADOS.includes(sectorDelGrupo)){console.log('Ignorado: sector apagado',sectorDelGrupo);return;}
+  // ── Bot principal ──
+  if(NUMEROS_IGNORADOS.includes(numero))return;
+  if(!botActivo)return;
+  if(!GRUPOS_ACTIVOS.includes(chatId))return;
+  if(SECTORES_APAGADOS.includes(sectorDelGrupo))return;
   if(esTexto&&tieneHoraFuturaLejana(texto))return;
 
-  var esFotoGrupo=GRUPOS_FOTO.some(function(n){return chat.name.toLowerCase().includes(n.toLowerCase());});
-  var esPrioritario=GRUPOS_PRIORITARIOS.includes(chat.name.trim().toLowerCase());
+  var esFotoGrupo=GRUPOS_FOTO.some(function(n){return nombreGrupo.toLowerCase().includes(n.toLowerCase());});
+  var esPrioritario=GRUPOS_PRIORITARIOS.includes(nombreGrupo.trim().toLowerCase());
   var tieneKeyword=false;
 
   if (esTexto) {
     var resultMinutos = detectarMinutosCercanos(texto);
-    if (resultMinutos === true) {
-      tieneKeyword = true;
-    } else if (resultMinutos === false) {
-      return;
-    }
+    if (resultMinutos === true) { tieneKeyword = true; }
+    else if (resultMinutos === false) { return; }
   }
 
   if (!tieneKeyword) {
     if(esPrioritario){
-      if(buscarKeywordEspecial(texto,chat.name.trim())){tieneKeyword=true;}
+      if(buscarKeywordEspecial(texto,nombreGrupo.trim())){tieneKeyword=true;}
       else{if(tieneExclusion(texto))return;tieneKeyword=tieneKeywordPositiva(texto);}
     } else {
       if(tieneExclusion(texto))return;
       tieneKeyword=tieneKeywordPositiva(texto);
-      if(!tieneKeyword)tieneKeyword=buscarKeywordEspecial(texto,chat.name.trim());
+      if(!tieneKeyword)tieneKeyword=buscarKeywordEspecial(texto,nombreGrupo.trim());
     }
   }
 
-  if(!tieneKeyword&&!(esFoto&&esFotoGrupo)){
-    console.log('Ignorado: sin keyword',chat.name);
-    return;
-  }
+  if(!tieneKeyword&&!(esFoto&&esFotoGrupo))return;
 
   var ahora=Date.now();
-  if(lastReply[chatIdP]&&ahora-lastReply[chatIdP]<COOLDOWN)return;
-  lastReply[chatIdP]=ahora;
+  if(lastReply[chatId]&&ahora-lastReply[chatId]<COOLDOWN)return;
+  lastReply[chatId]=ahora;
   await new Promise(function(r){setTimeout(r,DELAY);});
-  await responderAlMensaje(chatIdP,chat.name,msg);
-
-  console.log('Respuesta enviada al grupo:',chat.name);
+  await responderMensaje(chatId,nombreGrupo,msg);
 
   var now=getHoraPeru();
-  HISTORIAL.unshift({grupo:chat.name,sector:sectorDelGrupo,mensaje:esFoto?'📸 Foto':texto.substring(0,80),fecha:now.toLocaleDateString('es-PE'),hora:now.toLocaleTimeString('es-PE')});
-  saveHistorial();enviarNotificacion(chat.name,now.toLocaleTimeString('es-PE'));
+  HISTORIAL.unshift({grupo:nombreGrupo,sector:sectorDelGrupo,mensaje:esFoto?'📸 Foto':texto.substring(0,80),fecha:now.toLocaleDateString('es-PE'),hora:now.toLocaleTimeString('es-PE')});
+  saveHistorial();enviarNotificacion(nombreGrupo,now.toLocaleTimeString('es-PE'));
   botActivo=false;saveConfig();
 });
 
@@ -810,7 +742,6 @@ app.get('/eventos',function(req,res){
   res.flushHeaders();sseClients.push(res);
   req.on('close',function(){sseClients=sseClients.filter(function(c){return c!==res;});});
 });
-
 app.get('/historial',function(req,res){
   var filas=HISTORIAL.length===0
     ?'<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Sin registros aun</td></tr>'
@@ -833,7 +764,6 @@ app.get('/historial',function(req,res){
     '</body></html>');
 });
 app.delete('/historial',function(req,res){HISTORIAL=[];saveHistorial();res.json({ok:true});});
-
 app.post('/cerrar-sesion',async function(req,res){
   try{isReady=false;botActivo=false;saveConfig();await client.logout();}catch(e){}
   try{var sp='./.wwebjs_auth';if(fs.existsSync(sp))fs.rmSync(sp,{recursive:true,force:true});}catch(e){}
@@ -862,7 +792,6 @@ app.post('/sector',function(req,res){
   else SECTORES_APAGADOS.push(sector);
   saveConfig();res.json({sectoresApagados:SECTORES_APAGADOS});
 });
-
 app.get('/keywords',function(req,res){res.json(KW);});
 app.post('/keywords/global',function(req,res){
   var kw=(req.body.keyword||'').trim(),accion=req.body.accion;
@@ -915,33 +844,22 @@ app.post('/keywords/mover-sector',function(req,res){
   }
   saveKeywords(KW);
   var grupoCache=GRUPOS_CACHE.find(function(g){return g.name.trim().toLowerCase()===grupo.trim().toLowerCase();});
-  if(grupoCache&&!GRUPOS_ACTIVOS.includes(grupoCache.id)){
-    GRUPOS_ACTIVOS.push(grupoCache.id);
-    saveConfig();
-  }
+  if(grupoCache&&!GRUPOS_ACTIVOS.includes(grupoCache.id)){GRUPOS_ACTIVOS.push(grupoCache.id);saveConfig();}
   res.json({ok:true,sectoresPersonalizados:KW.sectoresPersonalizados});
 });
 app.post('/enfoque',function(req,res){
   var grupoId=(req.body.grupoId||'').trim(),grupoNombre=(req.body.grupoNombre||'').trim();
   if(!grupoId)return res.status(400).json({error:'grupoId requerido'});
   var snap=loadSnapshot();
-  if(!snap){
-    saveSnapshot({gruposActivos:[...GRUPOS_ACTIVOS],gruposEnfoque:[grupoNombre]});
-    GRUPOS_ACTIVOS=[];
-  } else {
-    if(!snap.gruposEnfoque)snap.gruposEnfoque=[];
-    if(!snap.gruposEnfoque.includes(grupoNombre))snap.gruposEnfoque.push(grupoNombre);
-    saveSnapshot(snap);
-  }
+  if(!snap){saveSnapshot({gruposActivos:[...GRUPOS_ACTIVOS],gruposEnfoque:[grupoNombre]});GRUPOS_ACTIVOS=[];}
+  else{if(!snap.gruposEnfoque)snap.gruposEnfoque=[];if(!snap.gruposEnfoque.includes(grupoNombre))snap.gruposEnfoque.push(grupoNombre);saveSnapshot(snap);}
   if(!GRUPOS_ACTIVOS.includes(grupoId))GRUPOS_ACTIVOS.push(grupoId);
-  saveConfig();
-  res.json({ok:true,gruposEnfoque:loadSnapshot().gruposEnfoque});
+  saveConfig();res.json({ok:true,gruposEnfoque:loadSnapshot().gruposEnfoque});
 });
 app.post('/enfoque/restaurar',function(req,res){
   var snap=loadSnapshot();
   if(snap){GRUPOS_ACTIVOS=snap.gruposActivos||[];saveConfig();}
-  deleteSnapshot();
-  res.json({ok:true});
+  deleteSnapshot();res.json({ok:true});
 });
 app.get('/enfoque/estado',function(req,res){
   var snap=loadSnapshot();
@@ -960,7 +878,6 @@ app.get('/',function(req,res){
       res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:sans-serif;text-align:center;padding:30px"><h2>📱 Escanea con WhatsApp Business</h2><img src="'+img+'" style="width:280px;border-radius:12px"/><p style="color:#888;font-size:13px">Abre WhatsApp → Dispositivos vinculados → Vincular dispositivo</p><script>setTimeout(function(){location.reload()},30000)</script></body></html>');
     });
   }
-
   var ganData=loadGanancias(),hoy=getHoraPeru().toLocaleDateString('es-PE');
   if(ganData.fecha!==hoy)ganData={fecha:hoy,ganancias:0,gastos:0};
   var totalLiquido=Math.round((ganData.ganancias-ganData.gastos)*100)/100;
@@ -972,65 +889,35 @@ app.get('/',function(req,res){
   var delayOpts='';
   for(var ms=100;ms<=1000;ms+=100)delayOpts+='<option value="'+ms+'"'+(DELAY===ms?' selected':'')+'>'+ms+' ms</option>';
   var kwActual=loadKeywords();
-
-  var kwGlobalesHtml=(kwActual.globales||[]).map(function(k){
-    return '<span style="display:inline-flex;align-items:center;gap:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:16px;padding:3px 10px;font-size:12px;color:#2e7d32;margin:3px">'+k+'<button onclick="quitarKw(\'global\',\''+k.replace(/'/g,"\\'")+'\')" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';
-  }).join('')||'<span style="color:#aaa;font-size:12px">Sin keywords extras</span>';
-
-  var kwExcluirHtml=(kwActual.excluir||[]).map(function(k){
-    return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fdecea;border:1px solid #ef9a9a;border-radius:16px;padding:3px 10px;font-size:12px;color:#c62828;margin:3px">'+k+'<button onclick="quitarKw(\'excluir\',\''+k.replace(/'/g,"\\'")+'\')" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';
-  }).join('')||'<span style="color:#aaa;font-size:12px">Sin keywords extras</span>';
-
+  var kwGlobalesHtml=(kwActual.globales||[]).map(function(k){return '<span style="display:inline-flex;align-items:center;gap:4px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:16px;padding:3px 10px;font-size:12px;color:#2e7d32;margin:3px">'+k+'<button onclick="quitarKw(\'global\',\''+k.replace(/'/g,"\\'")+'\')" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';}).join('')||'<span style="color:#aaa;font-size:12px">Sin keywords extras</span>';
+  var kwExcluirHtml=(kwActual.excluir||[]).map(function(k){return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fdecea;border:1px solid #ef9a9a;border-radius:16px;padding:3px 10px;font-size:12px;color:#c62828;margin:3px">'+k+'<button onclick="quitarKw(\'excluir\',\''+k.replace(/'/g,"\\'")+'\')" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';}).join('')||'<span style="color:#aaa;font-size:12px">Sin keywords extras</span>';
   var kwEspecialesHtml='';
   var gCE=Object.keys(kwActual.especiales||{});
   if(!gCE.length){kwEspecialesHtml='<span style="color:#aaa;font-size:12px">Sin keywords extras por grupo</span>';}
-  else{gCE.forEach(function(g){
-    kwEspecialesHtml+='<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px">📌 '+g+'</div>';
-    kwEspecialesHtml+=(kwActual.especiales[g]||[]).map(function(k){
-      return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3e0;border:1px solid #ffcc80;border-radius:16px;padding:3px 10px;font-size:12px;color:#e65100;margin:2px">'+k+'<button onclick="quitarKwEspecial(\''+g.replace(/'/g,"\\'")+'\',\''+k.replace(/'/g,"\\'")+'\')\" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';
-    }).join('')+'</div>';
-  });}
-
+  else{gCE.forEach(function(g){kwEspecialesHtml+='<div style="margin-bottom:8px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px">📌 '+g+'</div>';kwEspecialesHtml+=(kwActual.especiales[g]||[]).map(function(k){return '<span style="display:inline-flex;align-items:center;gap:4px;background:#fff3e0;border:1px solid #ffcc80;border-radius:16px;padding:3px 10px;font-size:12px;color:#e65100;margin:2px">'+k+'<button onclick="quitarKwEspecial(\''+g.replace(/'/g,"\\'")+'\',\''+k.replace(/'/g,"\\'")+'\')\" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:14px;padding:0;line-height:1">×</button></span>';}).join('')+'</div>';});}
   var frasesBaseHtml='';
   Object.keys(SECTOR_BASE_CONFIG).forEach(function(grupo){
     var desact=(kwActual.frasesDesactivadas&&kwActual.frasesDesactivadas[grupo])||[];
     frasesBaseHtml+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#555;margin-bottom:6px">🔒 '+grupo+'</div>';
     SECTOR_BASE_CONFIG[grupo].frases.forEach(function(frase){
       var activa=!desact.includes(frase);
-      frasesBaseHtml+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:'+(activa?'#e8f5e9':'#f5f5f5')+';border-radius:8px;margin-bottom:4px">'+
-        '<span style="font-size:12px;color:'+(activa?'#2e7d32':'#999')+'">'+frase+'</span>'+
-        '<button onclick="toggleFraseBase(\''+grupo.replace(/'/g,"\\'")+'\',\''+frase.replace(/'/g,"\\'")+'\','+(activa?'true':'false')+')" style="padding:4px 12px;border-radius:14px;border:none;background:'+(activa?'#25D366':'#ccc')+';color:white;cursor:pointer;font-size:11px">'+(activa?'ON ✅':'OFF ⛔')+'</button></div>';
+      frasesBaseHtml+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:'+(activa?'#e8f5e9':'#f5f5f5')+';border-radius:8px;margin-bottom:4px"><span style="font-size:12px;color:'+(activa?'#2e7d32':'#999')+'">'+frase+'</span><button onclick="toggleFraseBase(\''+grupo.replace(/'/g,"\\'")+'\',\''+frase.replace(/'/g,"\\'")+'\','+(activa?'true':'false')+')" style="padding:4px 12px;border-radius:14px;border:none;background:'+(activa?'#25D366':'#ccc')+';color:white;cursor:pointer;font-size:11px">'+(activa?'ON ✅':'OFF ⛔')+'</button></div>';
     });
     frasesBaseHtml+='</div>';
   });
-
   var gruposSelectOpts=GRUPOS_CACHE.map(function(g){return '<option value="'+g.name.replace(/"/g,'&quot;')+'">'+g.name+'</option>';}).join('');
-
-  var spActual = kwActual.sectoresPersonalizados || {};
-  var moverGruposHtml = '';
-  var gruposMovidos = [];
-  Object.keys(spActual).forEach(function(sec){
-    (spActual[sec]||[]).forEach(function(nombre){gruposMovidos.push({nombre:nombre,sector:sec});});
-  });
+  var spActual=kwActual.sectoresPersonalizados||{};
+  var gruposMovidos=[];
+  Object.keys(spActual).forEach(function(sec){(spActual[sec]||[]).forEach(function(nombre){gruposMovidos.push({nombre:nombre,sector:sec});});});
+  var moverGruposHtml='';
   if(gruposMovidos.length>0){
-    moverGruposHtml='<div style="margin-bottom:8px;padding:8px 10px;background:#f3e5f5;border-radius:8px;">';
-    moverGruposHtml+='<div style="font-size:11px;font-weight:600;color:#6a1b9a;margin-bottom:6px">Grupos movidos:</div>';
-    gruposMovidos.forEach(function(gm){
-      moverGruposHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
-        '<span style="font-size:11px;color:#444">'+gm.nombre+' → <b>'+gm.sector+'</b></span>'+
-        '<button onclick="restaurarSectorOriginal(\''+gm.nombre.replace(/'/g,"\\'")+'\')" style="padding:2px 8px;border-radius:10px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:10px">↩️</button></div>';
-    });
+    moverGruposHtml='<div style="margin-bottom:8px;padding:8px 10px;background:#f3e5f5;border-radius:8px;"><div style="font-size:11px;font-weight:600;color:#6a1b9a;margin-bottom:6px">Grupos movidos:</div>';
+    gruposMovidos.forEach(function(gm){moverGruposHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:11px;color:#444">'+gm.nombre+' → <b>'+gm.sector+'</b></span><button onclick="restaurarSectorOriginal(\''+gm.nombre.replace(/'/g,"\\'")+'\')" style="padding:2px 8px;border-radius:10px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:10px">↩️</button></div>';});
     moverGruposHtml+='</div>';
   }
-
   var porSector={};
   Object.keys(SECTORES).forEach(function(s){porSector[s]=[];});
-  GRUPOS_CACHE.forEach(function(g){
-    var s=getSectorDeGrupo(g.name);
-    if(!porSector[s])porSector[s]=[];
-    if(!esGrupoGanancias(g.name))porSector[s].push(g);
-  });
-
+  GRUPOS_CACHE.forEach(function(g){var s=getSectorDeGrupo(g.name);if(!porSector[s])porSector[s]=[];if(!esGrupoGanancias(g.name))porSector[s].push(g);});
   var sectoresHtml='';
   Object.keys(porSector).forEach(function(sector){
     var grupos=porSector[sector];if(!grupos.length)return;
@@ -1050,113 +937,36 @@ app.get('/',function(req,res){
       var enEnfoque=modoEnfoque&&gruposEnfoqueNombres.includes(g.name);
       var tagEnf=enEnfoque?'<span style="font-size:10px;color:#e67e22"> 🎯</span>':'';
       var op=!sectorActivo?'opacity:0.45;':'';
-      return '<div class="grupo-item" data-nombre="'+g.name.toLowerCase()+'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;'+op+'">'+
-        '<span style="font-size:13px;color:#444">'+g.name+fotoTag+tagM+tagC+tagB+tagEnf+cdInfo+'</span>'+
-        '<div style="display:flex;gap:6px;flex-shrink:0">'+
-        '<button onclick="toggleGrupo(\''+g.id+'\')" style="padding:5px 12px;border-radius:20px;border:none;background:'+(activo?'#25D366':'#ccc')+';color:white;cursor:pointer;font-size:12px">'+(activo?'Activo':'Inactivo')+'</button>'+
-        '<button onclick="soloEste(\''+g.id+'\',\''+g.name.replace(/'/g,"\\'")+'\')" title="Agregar al enfoque" style="padding:5px 10px;border-radius:20px;border:none;background:'+(enEnfoque?'#e67e22':'#f0a500')+';color:white;cursor:pointer;font-size:12px">🎯</button>'+
-        '</div></div>';
+      return '<div class="grupo-item" data-nombre="'+g.name.toLowerCase()+'" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 10px 16px;border-bottom:1px solid #f0f0f0;'+op+'"><span style="font-size:13px;color:#444">'+g.name+fotoTag+tagM+tagC+tagB+tagEnf+cdInfo+'</span><div style="display:flex;gap:6px;flex-shrink:0"><button onclick="toggleGrupo(\''+g.id+'\')" style="padding:5px 12px;border-radius:20px;border:none;background:'+(activo?'#25D366':'#ccc')+';color:white;cursor:pointer;font-size:12px">'+(activo?'Activo':'Inactivo')+'</button><button onclick="soloEste(\''+g.id+'\',\''+g.name.replace(/'/g,"\\'")+'\')" title="Agregar al enfoque" style="padding:5px 10px;border-radius:20px;border:none;background:'+(enEnfoque?'#e67e22':'#f0a500')+';color:white;cursor:pointer;font-size:12px">🎯</button></div></div>';
     }).join('');
     var labelS=sector+(esComodin?' 🔇':'')+(esBase?' 🔒':'');
-    sectoresHtml+='<div class="sector-card" style="margin-bottom:16px;border:2px solid '+(sectorActivo?'#e0e0e0':'#e74c3c')+';border-radius:12px;overflow:hidden">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:'+(sectorActivo?'#f7f7f7':'#fdecea')+'">'+
-      '<span style="font-weight:600;font-size:15px">📍 '+labelS+'</span>'+
-      '<button onclick="toggleSector(\''+sector+'\')" style="padding:6px 16px;border-radius:20px;border:none;background:'+(sectorActivo?'#25D366':'#e74c3c')+';color:white;cursor:pointer;font-size:13px">'+(sectorActivo?'Sector ON ✅':'Sector OFF ⛔')+'</button></div>'+
-      '<div class="sector-grupos">'+gruposHtml+'</div></div>';
+    sectoresHtml+='<div class="sector-card" style="margin-bottom:16px;border:2px solid '+(sectorActivo?'#e0e0e0':'#e74c3c')+';border-radius:12px;overflow:hidden"><div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:'+(sectorActivo?'#f7f7f7':'#fdecea')+'"><span style="font-weight:600;font-size:15px">📍 '+labelS+'</span><button onclick="toggleSector(\''+sector+'\')" style="padding:6px 16px;border-radius:20px;border:none;background:'+(sectorActivo?'#25D366':'#e74c3c')+';color:white;cursor:pointer;font-size:13px">'+(sectorActivo?'Sector ON ✅':'Sector OFF ⛔')+'</button></div><div class="sector-grupos">'+gruposHtml+'</div></div>';
   });
-
   var bannerEnfoque='';
   if(modoEnfoque){
     var listaEnfoque=gruposEnfoqueNombres.length>0?gruposEnfoqueNombres.join(', '):'(ninguno)';
-    bannerEnfoque='<div style="padding:12px 14px;background:#fff3e0;border:2px solid #ffcc80;border-radius:10px;margin-bottom:12px">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center">'+
-      '<div><div style="font-size:12px;color:#e65100;font-weight:600">🎯 MODO ENFOQUE ('+gruposEnfoqueNombres.length+' grupo'+(gruposEnfoqueNombres.length!==1?'s':'')+')</div>'+
-      '<div style="font-size:12px;color:#666;margin-top:3px">'+listaEnfoque+'</div></div>'+
-      '<button onclick="restaurarConfig()" style="padding:8px 14px;border-radius:20px;border:none;background:#e67e22;color:white;cursor:pointer;font-size:13px;flex-shrink:0;margin-left:10px">Restaurar 🔄</button></div></div>';
+    bannerEnfoque='<div style="padding:12px 14px;background:#fff3e0;border:2px solid #ffcc80;border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:12px;color:#e65100;font-weight:600">🎯 MODO ENFOQUE ('+gruposEnfoqueNombres.length+' grupo'+(gruposEnfoqueNombres.length!==1?'s':'')+')</div><div style="font-size:12px;color:#666;margin-top:3px">'+listaEnfoque+'</div></div><button onclick="restaurarConfig()" style="padding:8px 14px;border-radius:20px;border:none;background:#e67e22;color:white;cursor:pointer;font-size:13px;flex-shrink:0;margin-left:10px">Restaurar 🔄</button></div></div>';
   }
-
-  res.send('<!DOCTYPE html><html><head>'+
-    '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Bot</title>'+
-    '<style>'+
-    '.hidden{display:none !important;}'+
-    '#drawer{position:fixed;top:0;right:-320px;width:300px;height:100%;background:white;box-shadow:-4px 0 20px rgba(0,0,0,.15);z-index:1000;transition:right .3s ease;overflow-y:auto;padding:20px;box-sizing:border-box;}'+
-    '#drawer.open{right:0;}'+
-    '#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999;}'+
-    '#overlay.open{display:block;}'+
-    '.menu-section{margin-bottom:20px;border-bottom:1px solid #f0f0f0;padding-bottom:16px;}'+
-    '.menu-section:last-child{border-bottom:none;}'+
-    '.menu-section h4{margin:0 0 10px 0;font-size:14px;color:#555;}'+
-    '.menu-link{display:block;padding:11px 14px;font-size:14px;text-decoration:none;color:#333;border-radius:8px;background:#f7f7f7;margin-bottom:6px;}'+
-    '.menu-btn{width:100%;padding:11px 14px;font-size:14px;text-align:left;border:none;border-radius:8px;background:#f7f7f7;color:#333;cursor:pointer;margin-bottom:6px;}'+
-    '.kw-input{flex:1;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;}'+
-    '</style>'+
-    '</head><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">'+
+  res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp Bot</title><style>.hidden{display:none !important;}#drawer{position:fixed;top:0;right:-320px;width:300px;height:100%;background:white;box-shadow:-4px 0 20px rgba(0,0,0,.15);z-index:1000;transition:right .3s ease;overflow-y:auto;padding:20px;box-sizing:border-box;}#drawer.open{right:0;}#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999;}#overlay.open{display:block;}.menu-section{margin-bottom:20px;border-bottom:1px solid #f0f0f0;padding-bottom:16px;}.menu-section:last-child{border-bottom:none;}.menu-section h4{margin:0 0 10px 0;font-size:14px;color:#555;}.menu-link{display:block;padding:11px 14px;font-size:14px;text-decoration:none;color:#333;border-radius:8px;background:#f7f7f7;margin-bottom:6px;}.menu-btn{width:100%;padding:11px 14px;font-size:14px;text-align:left;border:none;border-radius:8px;background:#f7f7f7;color:#333;cursor:pointer;margin-bottom:6px;}.kw-input{flex:1;padding:7px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;}</style></head><body style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">'+
     '<div id="overlay" onclick="cerrarMenu()"></div>'+
-    '<div id="drawer">'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'+
-    '<span style="font-weight:700;font-size:16px">⚙️ Opciones</span>'+
-    '<button onclick="cerrarMenu()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888">✕</button></div>'+
+    '<div id="drawer"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><span style="font-weight:700;font-size:16px">⚙️ Opciones</span><button onclick="cerrarMenu()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888">✕</button></div>'+
     '<div class="menu-section"><a href="/historial" class="menu-link">📋 Historial <span style="color:#888;font-size:12px">('+HISTORIAL.length+')</span></a></div>'+
-    '<div class="menu-section"><h4>⏱ Delay de respuesta</h4>'+
-    '<div style="display:flex;align-items:center;gap:8px">'+
-    '<select id="delaySelect" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white">'+delayOpts+'</select>'+
-    '<button onclick="guardarDelay()" style="padding:8px 14px;border-radius:8px;border:none;background:#3498db;color:white;cursor:pointer;font-size:13px">Guardar</button></div></div>'+
-    '<div class="menu-section"><h4>✅ Keywords globales</h4>'+
-    '<div id="kwGlobalesWrap" style="margin-bottom:8px">'+kwGlobalesHtml+'</div>'+
-    '<div style="display:flex;gap:6px"><input id="kwGlobalInput" type="text" placeholder="Nueva keyword..." class="kw-input"/>'+
-    '<button onclick="agregarKw(\'global\')" style="padding:7px 12px;border-radius:8px;border:none;background:#25D366;color:white;cursor:pointer;font-size:13px">+</button></div></div>'+
-    '<div class="menu-section"><h4>🚫 Keywords excluidas</h4>'+
-    '<div id="kwExcluirWrap" style="margin-bottom:8px">'+kwExcluirHtml+'</div>'+
-    '<div style="display:flex;gap:6px"><input id="kwExcluirInput" type="text" placeholder="Nueva keyword a excluir..." class="kw-input"/>'+
-    '<button onclick="agregarKw(\'excluir\')" style="padding:7px 12px;border-radius:8px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:13px">+</button></div></div>'+
-    '<div class="menu-section"><h4>📌 Keywords especiales por grupo</h4>'+
-    '<div id="kwEspecialesWrap" style="margin-bottom:8px">'+kwEspecialesHtml+'</div>'+
-    '<select id="kwEspecialGrupo" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px">'+
-    '<option value="">— Selecciona un grupo —</option>'+gruposSelectOpts+'</select>'+
-    '<div style="display:flex;gap:6px"><input id="kwEspecialInput" type="text" placeholder="Keyword para ese grupo..." class="kw-input"/>'+
-    '<button onclick="agregarKwEspecial()" style="padding:7px 12px;border-radius:8px;border:none;background:#e67e22;color:white;cursor:pointer;font-size:13px">+</button></div></div>'+
-    '<div class="menu-section"><h4>🔒 Frases Sector Base</h4>'+
-    '<p style="color:#888;font-size:11px;margin:0 0 10px 0">Activa o desactiva cada frase individualmente</p>'+
-    frasesBaseHtml+'</div>'+
-    '<div class="menu-section"><h4>📦 Mover grupo de sector</h4>'+
-    '<p style="color:#888;font-size:11px;margin:0 0 10px 0">Mueve un grupo a otro sector para cambiar su comportamiento</p>'+
-    '<select id="moverGrupoSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px">'+
-    '<option value="">— Selecciona un grupo —</option>'+gruposSelectOpts+'</select>'+
-    '<select id="moverSectorSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px">'+
-    '<option value="">— Mover a sector —</option>'+
-    '<option value="Sector Base">🔒 Sector Base</option>'+
-    '<option value="Sector PTB">📍 Sector PTB</option>'+
-    '<option value="Sector San José">📍 Sector San José</option>'+
-    '<option value="Sector Moderna">📍 Sector Moderna</option>'+
-    '<option value="Sector La Angostura">📍 Sector La Angostura</option>'+
-    '<option value="Sector Comodin">🔇 Sector Comodin</option>'+
-    '<option value="original">↩️ Restaurar sector original</option>'+
-    '</select>'+
-    moverGruposHtml+
-    '<button onclick="moverGrupo()" style="width:100%;padding:8px 14px;border-radius:8px;border:none;background:#8e44ad;color:white;cursor:pointer;font-size:13px;font-weight:600">📦 Mover grupo</button></div>'+
-    '<div class="menu-section">'+
-    '<button class="menu-btn" style="color:#e74c3c" onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}">🚪 Cerrar sesión</button>'+
-    '</div></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'+
-    '<h2 style="margin:0">🤖 WhatsApp Bot</h2>'+
-    '<button onclick="abrirMenu()" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>'+
+    '<div class="menu-section"><h4>⏱ Delay de respuesta</h4><div style="display:flex;align-items:center;gap:8px"><select id="delaySelect" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white">'+delayOpts+'</select><button onclick="guardarDelay()" style="padding:8px 14px;border-radius:8px;border:none;background:#3498db;color:white;cursor:pointer;font-size:13px">Guardar</button></div></div>'+
+    '<div class="menu-section"><h4>✅ Keywords globales</h4><div id="kwGlobalesWrap" style="margin-bottom:8px">'+kwGlobalesHtml+'</div><div style="display:flex;gap:6px"><input id="kwGlobalInput" type="text" placeholder="Nueva keyword..." class="kw-input"/><button onclick="agregarKw(\'global\')" style="padding:7px 12px;border-radius:8px;border:none;background:#25D366;color:white;cursor:pointer;font-size:13px">+</button></div></div>'+
+    '<div class="menu-section"><h4>🚫 Keywords excluidas</h4><div id="kwExcluirWrap" style="margin-bottom:8px">'+kwExcluirHtml+'</div><div style="display:flex;gap:6px"><input id="kwExcluirInput" type="text" placeholder="Nueva keyword a excluir..." class="kw-input"/><button onclick="agregarKw(\'excluir\')" style="padding:7px 12px;border-radius:8px;border:none;background:#e74c3c;color:white;cursor:pointer;font-size:13px">+</button></div></div>'+
+    '<div class="menu-section"><h4>📌 Keywords especiales por grupo</h4><div id="kwEspecialesWrap" style="margin-bottom:8px">'+kwEspecialesHtml+'</div><select id="kwEspecialGrupo" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px"><option value="">— Selecciona un grupo —</option>'+gruposSelectOpts+'</select><div style="display:flex;gap:6px"><input id="kwEspecialInput" type="text" placeholder="Keyword para ese grupo..." class="kw-input"/><button onclick="agregarKwEspecial()" style="padding:7px 12px;border-radius:8px;border:none;background:#e67e22;color:white;cursor:pointer;font-size:13px">+</button></div></div>'+
+    '<div class="menu-section"><h4>🔒 Frases Sector Base</h4><p style="color:#888;font-size:11px;margin:0 0 10px 0">Activa o desactiva cada frase individualmente</p>'+frasesBaseHtml+'</div>'+
+    '<div class="menu-section"><h4>📦 Mover grupo de sector</h4><p style="color:#888;font-size:11px;margin:0 0 10px 0">Mueve un grupo a otro sector</p><select id="moverGrupoSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px"><option value="">— Selecciona un grupo —</option>'+gruposSelectOpts+'</select><select id="moverSectorSelect" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;background:white;margin-bottom:6px"><option value="">— Mover a sector —</option><option value="Sector Base">🔒 Sector Base</option><option value="Sector PTB">📍 Sector PTB</option><option value="Sector San José">📍 Sector San José</option><option value="Sector Moderna">📍 Sector Moderna</option><option value="Sector La Angostura">📍 Sector La Angostura</option><option value="Sector Comodin">🔇 Sector Comodin</option><option value="original">↩️ Restaurar sector original</option></select>'+moverGruposHtml+'<button onclick="moverGrupo()" style="width:100%;padding:8px 14px;border-radius:8px;border:none;background:#8e44ad;color:white;cursor:pointer;font-size:13px;font-weight:600">📦 Mover grupo</button></div>'+
+    '<div class="menu-section"><button class="menu-btn" style="color:#e74c3c" onclick="if(confirm(\'¿Cerrar sesión?\')){fetch(\'/cerrar-sesion\',{method:\'POST\'}).then(function(){location.reload()})}">🚪 Cerrar sesión</button></div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="margin:0">🤖 WhatsApp Bot</h2><button onclick="abrirMenu()" style="background:none;border:none;font-size:26px;cursor:pointer">☰</button></div>'+
     bannerEnfoque+
-    '<div style="padding:14px;background:'+ganColor+';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8">'+
-    '<div>✅ <b>GANANCIAS:</b> Total hoy: '+ganData.ganancias+' soles</div>'+
-    '<div>📉 <b>GASTOS:</b> Total hoy: -'+ganData.gastos+' soles</div>'+
-    '<div><b>TOTAL LIQUIDO '+emojiLiquido+':</b> '+totalLiquido+' soles</div></div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:'+(botActivo?'#e8f5e9':'#fdecea')+';border-radius:10px;margin-bottom:8px">'+
-    '<span style="font-weight:bold;font-size:16px">Bot '+(botActivo?'✅ Activo':'⛔ Inactivo')+'</span>'+
-    '<button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:'+(botActivo?'#25D366':'#e74c3c')+';color:white;cursor:pointer;font-size:15px">'+(botActivo?'Desactivar':'Activar')+'</button></div>'+
+    '<div style="padding:14px;background:'+ganColor+';border-radius:10px;margin-bottom:12px;font-size:13px;line-height:1.8"><div>✅ <b>GANANCIAS:</b> Total hoy: '+ganData.ganancias+' soles</div><div>📉 <b>GASTOS:</b> Total hoy: -'+ganData.gastos+' soles</div><div><b>TOTAL LIQUIDO '+emojiLiquido+':</b> '+totalLiquido+' soles</div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:'+(botActivo?'#e8f5e9':'#fdecea')+';border-radius:10px;margin-bottom:8px"><span style="font-weight:bold;font-size:16px">Bot '+(botActivo?'✅ Activo':'⛔ Inactivo')+'</span><button onclick="toggleBot()" style="padding:8px 20px;border-radius:20px;border:none;background:'+(botActivo?'#25D366':'#e74c3c')+';color:white;cursor:pointer;font-size:15px">'+(botActivo?'Desactivar':'Activar')+'</button></div>'+
     '<p style="color:#888;font-size:12px;margin-bottom:16px">⏱ Cooldown: 5 min | Respuesta: <b>"'+AUTO_REPLY+'"</b> | Se apaga solo al responder</p>'+
-    '<div style="margin-bottom:14px">'+
-    '<input id="buscador" type="text" placeholder="🔍 Buscar grupo..." oninput="buscarGrupo(this.value)" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;box-sizing:border-box"/>'+
-    '</div>'+
-    '<h3 id="titulo-grupos">Grupos ('+GRUPOS_CACHE.length+')</h3>'+
-    sectoresHtml+
+    '<div style="margin-bottom:14px"><input id="buscador" type="text" placeholder="🔍 Buscar grupo..." oninput="buscarGrupo(this.value)" style="width:100%;padding:10px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;box-sizing:border-box"/></div>'+
+    '<h3 id="titulo-grupos">Grupos ('+GRUPOS_CACHE.length+')</h3>'+sectoresHtml+
     '<script>'+
-    'var evtSource=new EventSource("/eventos");'+
-    'evtSource.onmessage=function(e){var d=JSON.parse(e.data);toast("✅ Bot respondió\\n"+d.grupo,"#25D366");};'+
+    'var evtSource=new EventSource("/eventos");evtSource.onmessage=function(e){var d=JSON.parse(e.data);toast("✅ Bot respondió\\n"+d.grupo,"#25D366");};'+
     'function abrirMenu(){document.getElementById("drawer").classList.add("open");document.getElementById("overlay").classList.add("open");}'+
     'function cerrarMenu(){document.getElementById("drawer").classList.remove("open");document.getElementById("overlay").classList.remove("open");}'+
     'function toast(msg,color){color=color||"#25D366";var t=document.createElement("div");t.style.cssText="position:fixed;top:16px;left:50%;transform:translateX(-50%);background:"+color+";color:white;padding:10px 18px;border-radius:12px;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:9999;max-width:300px;text-align:center;white-space:pre-line";t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove()},3000);}'+
@@ -1178,13 +988,10 @@ app.get('/',function(req,res){
 });
 
 app.listen(3000,function(){console.log('Servidor activo');});
-
 process.on('unhandledRejection', function(reason) {
   console.log('Error no manejado:', JSON.stringify({msg: reason && reason.message, name: reason && reason.name}));
 });
-
 setInterval(async function(){
   try{if(isReady){var s=await client.getState();if(s!=='CONNECTED'){isReady=false;qrCodeData='';botActivo=false;saveConfig();process.exit(0);}}}catch(e){process.exit(0);}
 },30*60*1000);
-
 client.initialize();
