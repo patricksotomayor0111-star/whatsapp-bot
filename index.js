@@ -631,6 +631,45 @@ async function cargarGrupos(intento) {
   }
 }
 
+async function obtenerNumeroAutor(msg) {
+  var autor = msg.author || '';
+  if (!autor) return '';
+
+  var numero = autor.replace(/@.*/, '').replace(/[^0-9]/g, '');
+  if (!autor.endsWith('@lid')) return numero;
+
+  try {
+    if (typeof client.getContactLidAndPhone === 'function') {
+      var resultado = await client.getContactLidAndPhone([autor]);
+      if (resultado && resultado[0] && resultado[0].pn) {
+        return resultado[0].pn.replace(/[^0-9]/g, '');
+      }
+    }
+  } catch (e) {
+    console.log('No se pudo resolver el número LID:', e.message);
+  }
+
+  return numero;
+}
+
+async function responderAlMensaje(chatId, nombreGrupo, msg) {
+  if (esGrupoSinRemarcar(nombreGrupo)) {
+    return client.sendMessage(chatId, AUTO_REPLY);
+  }
+
+  var idMensaje = msg.id && msg.id._serialized;
+  if (!idMensaje) return client.sendMessage(chatId, AUTO_REPLY);
+
+  try {
+    return await client.sendMessage(chatId, AUTO_REPLY, {
+      quotedMessageId: idMensaje
+    });
+  } catch (e) {
+    console.log('Error al remarcar; se envía normal:', e.message);
+    return client.sendMessage(chatId, AUTO_REPLY);
+  }
+}
+
 client.on('message', async function(msg) {
   console.log('Mensaje recibido:', JSON.stringify({
     from:msg.from,
@@ -647,8 +686,10 @@ client.on('message', async function(msg) {
   if (!chatId || !chatId.endsWith('@g.us')) return;
   var grupoActual = GRUPOS_CACHE.find(function(g){return g.id===chatId;});
   if (!grupoActual) {
-    console.log('Mensaje de grupo no encontrado en cach\u00e9:',chatId);
-    return;
+    console.log('Grupo no encontrado en caché; actualizando:',chatId);
+    await cargarGrupos();
+    grupoActual = GRUPOS_CACHE.find(function(g){return g.id===chatId;});
+    if (!grupoActual) return;
   }
   var chat = {
     isGroup:true,
@@ -657,7 +698,7 @@ client.on('message', async function(msg) {
     sendMessage:function(contenido){return client.sendMessage(chatId,contenido);}
   };
   var texto=msg.body||'';
-  var numero=(msg.author||'').replace(/@.*/,'').replace(/[^0-9]/g,'');
+  var numero=await obtenerNumeroAutor(msg);
 
   if (esGrupoGanancias(chat.name)) {
     if (msg.fromMe) return;
@@ -707,7 +748,7 @@ client.on('message', async function(msg) {
       if(lastReply[chatId]&&aSB-lastReply[chatId]<COOLDOWN)return;
       lastReply[chatId]=aSB;
       await new Promise(function(r){setTimeout(r,DELAY);});
-await msg.reply(AUTO_REPLY);
+      await responderAlMensaje(chatId,chat.name,msg);
       var nSB=getHoraPeru();
       HISTORIAL.unshift({grupo:chat.name,sector:SECTOR_BASE,mensaje:texto.substring(0,80),fecha:nSB.toLocaleDateString('es-PE'),hora:nSB.toLocaleTimeString('es-PE')});
       saveHistorial();enviarNotificacion(chat.name,nSB.toLocaleTimeString('es-PE'));
@@ -756,11 +797,7 @@ await msg.reply(AUTO_REPLY);
   if(lastReply[chatIdP]&&ahora-lastReply[chatIdP]<COOLDOWN)return;
   lastReply[chatIdP]=ahora;
   await new Promise(function(r){setTimeout(r,DELAY);});
-if(esGrupoSinRemarcar(chat.name)) {
-  await chat.sendMessage(AUTO_REPLY);
-} else {
-  await msg.reply(AUTO_REPLY);
-}
+  await responderAlMensaje(chatIdP,chat.name,msg);
 
   console.log('Respuesta enviada al grupo:',chat.name);
 
