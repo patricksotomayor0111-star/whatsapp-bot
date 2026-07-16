@@ -656,14 +656,10 @@ async function responderAlMensaje(chatId, nombreGrupo, msg) {
   if (esGrupoSinRemarcar(nombreGrupo)) {
     return client.sendMessage(chatId, AUTO_REPLY);
   }
-
-  var idMensaje = msg.id && msg.id._serialized;
-  if (!idMensaje) return client.sendMessage(chatId, AUTO_REPLY);
-
+  // reply con chatId evita que whatsapp-web.js llame a msg.getChat(),
+  // pero conserva la respuesta citada que WhatsApp muestra remarcada.
   try {
-    return await client.sendMessage(chatId, AUTO_REPLY, {
-      quotedMessageId: idMensaje
-    });
+    return await msg.reply(AUTO_REPLY, chatId);
   } catch (e) {
     console.log('Error al remarcar; se envía normal:', e.message);
     return client.sendMessage(chatId, AUTO_REPLY);
