@@ -703,31 +703,59 @@ async function responderAlMensaje(chatId, nombreGrupo, msg) {
     return client.sendMessage(chatId, AUTO_REPLY);
   }
 
-try {
-  var idOriginal = msg.id && msg.id._serialized;
+  try {
+    var idMensaje = msg.id && msg.id._serialized;
 
-  if (!idOriginal) {
-    throw new Error('El mensaje entrante no tiene ID serializado');
+    // Si el evento no trae ID, se busca el mensaje real dentro de WhatsApp Web.
+    if (!idMensaje) {
+      idMensaje = await client.pupPage.evaluate(function(idChat, texto) {
+        var coleccion = window.require('WAWebCollections').Msg;
+        var mensajes = coleccion.getModelsArray
+          ? coleccion.getModelsArray()
+          : [];
+
+        var mejor = null;
+
+        for (var i = 0; i < mensajes.length; i++) {
+          var m = mensajes[i];
+          var id = m && m.id;
+          var remoto = id && id.remote;
+          var chatDelMensaje = typeof remoto === 'string'
+            ? remoto
+            : remoto && remoto._serialized;
+
+          var esMio = (m && m.fromMe) || (id && id.fromMe);
+
+          if (!id || !id._serialized) continue;
+          if (esMio) continue;
+          if (chatDelMensaje !== idChat) continue;
+          if ((m.body || '') !== texto) continue;
+
+          if (!mejor || (m.t || 0) > (mejor.t || 0)) {
+            mejor = m;
+          }
+        }
+
+        return mejor ? mejor.id._serialized : null;
+      }, chatId, msg.body || '');
+    }
+
+    if (!idMensaje) {
+      throw new Error('No se encontró el ID real del mensaje en WhatsApp Web');
+    }
+
+    var respuesta = await client.sendMessage(chatId, AUTO_REPLY, {
+      quotedMessageId: idMensaje,
+      ignoreQuoteErrors: false,
+      waitUntilMsgSent: true
+    });
+
+    console.log('Respuesta remarcada enviada:', nombreGrupo, idMensaje);
+    return respuesta;
+  } catch (e) {
+    console.log('Error al remarcar:', e.message);
+    return client.sendMessage(chatId, AUTO_REPLY);
   }
-
-  // Carga el mensaje real de WhatsApp antes de citarlo.
-  var mensajeOriginal = await client.getMessageById(idOriginal);
-
-  if (!mensajeOriginal) {
-    throw new Error('No se encontró el mensaje original para citar');
-  }
-
-  var respuesta = await mensajeOriginal.reply(AUTO_REPLY, chatId, {
-    ignoreQuoteErrors: false,
-    waitUntilMsgSent: true
-  });
-
-  console.log('Respuesta remarcada enviada:', nombreGrupo);
-  return respuesta;
-} catch (e) {
-  console.log('Error al remarcar:', e.message);
-  return client.sendMessage(chatId, AUTO_REPLY);
-}
 }
 
 client.on('message', async function(msg) {
