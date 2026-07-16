@@ -703,30 +703,8 @@ async function responderAlMensaje(chatId, nombreGrupo, msg) {
     return client.sendMessage(chatId, AUTO_REPLY);
   }
 
-  var idMensaje = obtenerIdSerializadoMensaje(msg);
-  if (!idMensaje) {
-    // El delay normal del bot ya permite que el mensaje esté en el historial.
-    idMensaje = await buscarIdMensajeEnChat(chatId, msg);
-  }
-  if (!idMensaje) {
-    console.log('No se puede remarcar: el mensaje no apareció con ID en el historial.');
-    return client.sendMessage(chatId, AUTO_REPLY);
-  }
-
   try {
-    // WhatsApp solo conserva la cita si el mensaje original ya está cargado
-    // en el chat. Por eso se obtiene el chat individual y se cargan mensajes.
-    var chatReal = await getChatByIdOriginal(chatId);
-
-    if (chatReal && typeof chatReal.fetchMessages === 'function') {
-      await chatReal.fetchMessages({ limit: 50 });
-    }
-
-    console.log('Intentando remarcar:', nombreGrupo, idMensaje);
-
-    var respuesta = await client.sendMessage(chatId, AUTO_REPLY, {
-      quotedMessageId: idMensaje
-    });
+    var respuesta = await msg.reply(AUTO_REPLY, chatId);
 
     console.log('Respuesta remarcada enviada:', nombreGrupo);
     return respuesta;
