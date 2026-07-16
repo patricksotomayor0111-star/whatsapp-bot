@@ -569,6 +569,9 @@ client.on('qr', function(qr) { qrCodeData=qr; isReady=false; });
 client.on('disconnected', function(reason) {
   console.log('Desconectado:',reason);
   isReady=false; qrCodeData=''; botActivo=false; saveConfig();
+  // Cuando WhatsApp cierra sesión, no borres ni reinicies dos veces el cliente.
+  // Railway mostrará un nuevo QR para vincularlo manualmente.
+  if (reason === 'LOGOUT') return;
   try { var p='./.wwebjs_auth'; if(fs.existsSync(p)) fs.rmSync(p,{recursive:true,force:true}); } catch(e) {}
   setTimeout(function(){try{client.initialize();}catch(e){process.exit(0);}},3000);
 });
@@ -629,6 +632,12 @@ async function cargarGrupos(intento) {
 }
 
 client.on('message', async function(msg) {
+  console.log('Mensaje recibido:', JSON.stringify({
+    from:msg.from,
+    author:msg.author,
+    type:msg.type,
+    texto:(msg.body||'').substring(0,80)
+  }));
   if (!isReady) return;
   var esFoto=msg.hasMedia&&msg.type==='image', esTexto=msg.type==='chat';
   if (!esTexto&&!esFoto) return;
@@ -689,10 +698,10 @@ client.on('message', async function(msg) {
 
   var sectorDelGrupo=getSectorDeGrupo(chat.name);
   if (sectorDelGrupo===SECTOR_BASE) {
-    if(!botActivo)return;
+    if(!botActivo){console.log('Ignorado: bot inactivo');return;}
     var chatId=chat.id._serialized;
-    if(!GRUPOS_ACTIVOS.includes(chatId))return;
-    if(SECTORES_APAGADOS.includes(SECTOR_BASE))return;
+    if(!GRUPOS_ACTIVOS.includes(chatId)){console.log('Ignorado: grupo no activo',chat.name);return;}
+    if(SECTORES_APAGADOS.includes(SECTOR_BASE)){console.log('Ignorado: Sector Base apagado');return;}
     if(procesarMensajeSectorBase(chat.name,numero,texto)){
       var aSB=Date.now();
       if(lastReply[chatId]&&aSB-lastReply[chatId]<COOLDOWN)return;
@@ -707,11 +716,11 @@ client.on('message', async function(msg) {
     return;
   }
 
-  if(NUMEROS_IGNORADOS.includes(numero))return;
-  if(!botActivo)return;
+  if(NUMEROS_IGNORADOS.includes(numero)){console.log('Ignorado: numero excluido');return;}
+  if(!botActivo){console.log('Ignorado: bot inactivo');return;}
   var chatIdP=chat.id._serialized;
-  if(!GRUPOS_ACTIVOS.includes(chatIdP))return;
-  if(SECTORES_APAGADOS.includes(sectorDelGrupo))return;
+  if(!GRUPOS_ACTIVOS.includes(chatIdP)){console.log('Ignorado: grupo no activo',chat.name);return;}
+  if(SECTORES_APAGADOS.includes(sectorDelGrupo)){console.log('Ignorado: sector apagado',sectorDelGrupo);return;}
   if(esTexto&&tieneHoraFuturaLejana(texto))return;
 
   var esFotoGrupo=GRUPOS_FOTO.some(function(n){return chat.name.toLowerCase().includes(n.toLowerCase());});
@@ -738,7 +747,10 @@ client.on('message', async function(msg) {
     }
   }
 
-  if(!tieneKeyword&&!(esFoto&&esFotoGrupo))return;
+  if(!tieneKeyword&&!(esFoto&&esFotoGrupo)){
+    console.log('Ignorado: sin keyword',chat.name);
+    return;
+  }
 
   var ahora=Date.now();
   if(lastReply[chatIdP]&&ahora-lastReply[chatIdP]<COOLDOWN)return;
@@ -746,6 +758,8 @@ client.on('message', async function(msg) {
   await new Promise(function(r){setTimeout(r,DELAY);});
   if(esGrupoSinRemarcar(chat.name))await chat.sendMessage(AUTO_REPLY);
   else await client.sendMessage(chatId,AUTO_REPLY,{quotedMessageId:msg.id._serialized});
+
+  console.log('Respuesta enviada al grupo:',chat.name);
 
   var now=getHoraPeru();
   HISTORIAL.unshift({grupo:chat.name,sector:sectorDelGrupo,mensaje:esFoto?'📸 Foto':texto.substring(0,80),fecha:now.toLocaleDateString('es-PE'),hora:now.toLocaleTimeString('es-PE')});
